@@ -8,7 +8,7 @@
     and verifies UVC gadget and streaming service activation.
 
 .PARAMETER TargetHost
-    Hostname or IP of the target Raspberry Pi (default: makinalasmak.local).
+    Hostname or IP of the target Raspberry Pi (default: pizero.local).
 
 .PARAMETER User
     Remote username (default: pi).
@@ -38,7 +38,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Position = 0)]
-    [string]$TargetHost = "makinalasmak.local",
+    [string]$TargetHost = "pizero.local",
 
     [Parameter(Position = 1)]
     [string]$User = "pi",

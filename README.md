@@ -67,7 +67,7 @@ graph LR
 ### Step 1: Prepare SD Card
 Flash **Raspberry Pi OS Lite** using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).  
 In OS Customization settings (`Ctrl + Shift + X`):
-- Set Hostname: `pizero` (or your preferred name, e.g. `makinalasmak`)
+- Set Hostname: `pizero` (or your preferred name)
 - Set Username & Password: e.g. `pi` / `raspberry`
 - Enable Wi-Fi & SSH
 
@@ -128,7 +128,7 @@ To connect to **Pupil Capture** without crashes:
 
 Access the dashboard from any browser on the local network:
 ```
-http://makinalasmak.local:8080
+http://pizero.local:8080
 # or http://<pi-zero-ip>:8080
 ```
 

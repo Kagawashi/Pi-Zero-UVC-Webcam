@@ -15,8 +15,9 @@ ExecStartPre=/usr/local/bin/setup-gadget.sh start
 # Sonra UVC streaming başlat
 ExecStart=/usr/local/bin/start-uvc.sh
 
-# Durdurulunca gadget'ı da temizle
-ExecStopPost=/usr/local/bin/setup-gadget.sh stop
+# Not: setup-gadget.sh stop ExecStopPost içinde çalıştırılmamalıdır;
+# aksi takdirde servis yeniden başlatıldığında USB UDC denetleyicisi düşer
+# ve RNDIS / UVC kompozit aygıtı çökerek kernel donmasına yol açabilir.
 
 # Çökerse otomatik yeniden başlat
 Restart=on-failure

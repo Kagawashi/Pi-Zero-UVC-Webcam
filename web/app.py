@@ -385,6 +385,66 @@ def find_uvc_device() -> str | None:
     return None
 
 
+def find_camera_control_devices() -> list[str]:
+    """Kamera kontrollerini destekleyen /dev/v4l-subdev* ve video yakalama cihazlarını bul."""
+    devices = []
+    # 1. /dev/v4l-subdev* (CSI sensör alt cihazları)
+    try:
+        for entry in sorted(Path("/dev").glob("v4l-subdev*")):
+            devices.append(str(entry))
+    except Exception:
+        pass
+
+    # 2. /dev/video* (bcm2835-unicam veya bcm2835-v4l2 video giriş cihazları - UVC hariç)
+    try:
+        for entry in sorted(Path("/dev").glob("video*")):
+            dev = str(entry)
+            rc, out, _ = run_cmd(["v4l2-ctl", "--device", dev, "--info"])
+            if rc == 0 and ("uvcg" not in out and "UVC" not in out):
+                devices.append(dev)
+    except Exception:
+        pass
+
+    return devices
+
+
+def apply_runtime_camera_controls(config: dict) -> dict:
+    """Kamera ayarlarını (pozlama, parlaklık, kontrast, flip) USB gadget ve UVC servisini
+    kesmeden doğrudan V4L2 üzerinden canlı olarak uygular."""
+    ctrl_devices = find_camera_control_devices()
+
+    for dev in ctrl_devices:
+        # Flip kontrolleri
+        if "hflip" in config:
+            val = 1 if config["hflip"] else 0
+            run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"horizontal_flip={val}"])
+        if "vflip" in config:
+            val = 1 if config["vflip"] else 0
+            run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"vertical_flip={val}"])
+
+        # Pozlama (Otomatik / Manuel)
+        if "auto_exposure" in config:
+            auto_exp = bool(config["auto_exposure"])
+            if auto_exp:
+                run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", "auto_exposure=0"])
+                run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", "exposure_auto=0"])
+            else:
+                run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", "auto_exposure=1"])
+                run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", "exposure_auto=1"])
+                if "exposure_value" in config:
+                    exp_val = int(config["exposure_value"])
+                    run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"exposure_time_absolute={exp_val}"])
+                    run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"exposure={exp_val}"])
+
+        # Görüntü kalitesi kontrolleri (0-100)
+        for key in ("brightness", "contrast", "saturation", "sharpness"):
+            if key in config:
+                val = int(config[key])
+                run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"{key}={val}"])
+
+    return {"devices": ctrl_devices, "status": "applied"}
+
+
 # =============================================================================
 # Web Route'ları
 # =============================================================================
@@ -455,20 +515,16 @@ def api_set_config():
 
     save_config(config)
 
-    # UVC servisi çalışıyorsa yeniden başlat
-    rc, out, _ = run_cmd(["systemctl", "is-active", "uvc-gadget"])
-    restart_msg = ""
-    if out == "active":
-        rc, _, err = run_cmd(["systemctl", "restart", "uvc-gadget"], timeout=15)
-        if rc == 0:
-            restart_msg = "UVC servisi yeniden başlatıldı"
-        else:
-            restart_msg = f"Servis yeniden başlatılamadı: {err}"
+    # Runtime kamera kontrollerini USB bağlantısını ve uvc-gadget servisini kesmeden canlı olarak uygula
+    try:
+        apply_runtime_camera_controls(config)
+    except Exception:
+        pass
 
     return jsonify({
         "status": "ok",
         "config": config,
-        "restart": restart_msg,
+        "restart": "Ayarlar canlı uygulandı (bağlantı kesilmedi)",
     })
 
 

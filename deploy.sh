@@ -14,7 +14,7 @@ Automated deployment tool for Raspberry Pi Zero UVC Camera gadget.
 
 Options:
   -h, --help                  Show this help message and exit
-  -H, --host, --target-host   Target Pi hostname or IP (default: makinalasmak.local)
+  -H, --host, --target-host   Target Pi hostname or IP (default: pizero.local)
   -u, --user                  Remote username (default: pi)
   -r, --role                  UVC camera role: eye0, eye1, world, generic (default: eye0)
   -s, --sensor                Camera sensor: ov5647, imx219, ov9281 (default: ov5647)
@@ -105,7 +105,7 @@ if [[ -z "$SENSOR" ]] && [[ ${#POSITIONAL_ARGS[@]} -ge 4 ]]; then
 fi
 
 # Apply environment variable fallbacks or defaults
-TARGET_HOST="${TARGET_HOST:-${HOST:-makinalasmak.local}}"
+TARGET_HOST="${TARGET_HOST:-${HOST:-pizero.local}}"
 USER="${USER:-${TARGET_USER:-${REMOTE_USER:-${USER_NAME:-pi}}}}"
 ROLE="${ROLE:-eye0}"
 SENSOR="${SENSOR:-ov5647}"

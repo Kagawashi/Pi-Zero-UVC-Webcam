@@ -25,7 +25,7 @@ Aynı zamanda tarayıcıdan erişilebilen bir **Web Kontrol Paneli (`:8080`)** v
 1. [Raspberry Pi Imager](https://www.raspberrypi.com/software/) programını açın.
 2. İşletim Sistemi olarak **Raspberry Pi OS Lite (32-bit veya 64-bit)** seçin.
 3. Ayarları yapılandırın (Çark simgesi veya `Ctrl+Shift+X`):
-   - **Hostname:** `pizero` *(veya `makinalasmak`)*
+   - **Hostname:** `pizero` *(veya tercih ettiğiniz bir isim)*
    - **Kullanıcı Adı:** `pi`
    - **Şifre:** `raspberry` *(veya belirlediğiniz şifre)*
    - **Wi-Fi Yapılandırması:** Bulunduğunuz Wi-Fi ağının veya telefon Hotspot'unuzun adı ve şifresi
