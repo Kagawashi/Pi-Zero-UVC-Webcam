@@ -315,23 +315,33 @@ def get_system_status() -> dict:
     rc, out, _ = run_cmd(["systemctl", "is-active", "picam-web"])
     status["web_status"] = out
 
-    # Kamera algılama
-    rc, out, _ = run_cmd(["libcamera-hello", "--list-cameras"], timeout=5)
-    if rc == 0 and "ov5647" in out.lower():
-        status["camera"] = "OV5647 algılandı ✓"
-        status["camera_detected"] = True
-    elif rc == 0 and "imx219" in out.lower():
-        status["camera"] = "IMX219 algılandı ✓"
-        status["camera_detected"] = True
-    elif rc == 0 and "ov9281" in out.lower():
-        status["camera"] = "OV9281 algılandı ✓"
-        status["camera_detected"] = True
-    elif rc == 0 and "Available cameras" in out:
-        status["camera"] = out.split("\n")[0]
-        status["camera_detected"] = True
-    else:
-        status["camera"] = "Kamera algılanamadı ✗"
-        status["camera_detected"] = False
+    # Kamera algılama (aktif yayını ve I2C veri yolunu kesmemek için önce sysfs üzerinden sıfır maliyetle oku)
+    camera_detected = False
+    camera_label = "Kamera algılanamadı ✗"
+    try:
+        v4l_dir = Path("/sys/class/video4linux")
+        if v4l_dir.exists():
+            for subdev in sorted(v4l_dir.glob("v4l-subdev*")):
+                name_file = subdev / "name"
+                if name_file.exists():
+                    sub_name = name_file.read_text(encoding="utf-8", errors="ignore").strip().lower()
+                    if "ov5647" in sub_name:
+                        camera_label = "OV5647 algılandı ✓"
+                        camera_detected = True
+                        break
+                    if "imx219" in sub_name:
+                        camera_label = "IMX219 algılandı ✓"
+                        camera_detected = True
+                        break
+                    if "ov9281" in sub_name:
+                        camera_label = "OV9281 algılandı ✓"
+                        camera_detected = True
+                        break
+    except Exception:
+        pass
+
+    status["camera"] = camera_label
+    status["camera_detected"] = camera_detected
 
     # UVC gadget cihazı
     uvc_dev = find_uvc_device()
@@ -363,15 +373,17 @@ def get_system_status() -> dict:
 def find_uvc_device() -> str | None:
     """UVC gadget /dev/video* cihazını bul."""
     try:
-        # Check /sys/class/video4linux nodes
+        # Check /sys/class/video4linux nodes without spawning v4l2-ctl
         v4l_dir = Path("/sys/class/video4linux")
         if v4l_dir.exists():
             for v_entry in sorted(v4l_dir.iterdir()):
+                if not v_entry.name.startswith("video"):
+                    continue
                 name_file = v_entry / "name"
                 if name_file.exists():
                     try:
-                        name = name_file.read_text(encoding="utf-8").strip()
-                        if "uvcg" in name or "uvc" in name.lower():
+                        name = name_file.read_text(encoding="utf-8").strip().lower()
+                        if "uvcg" in name or "uvc" in name or ".usb" in name or "gadget" in name:
                             return f"/dev/{v_entry.name}"
                     except Exception:
                         pass
