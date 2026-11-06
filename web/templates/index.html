@@ -974,7 +974,7 @@
             }
 
             if (result && result.status === 'ok') {
-                showToast(`✓ Kaydedildi: ${width}x${height} @ ${fps}fps (${role}). Pupil Capture içinden de aynı FPS'i seçin!`, 'success');
+                showToast(`✓ ${width}x${height} @ ${fps}fps (${role}) — ${result.restart || ''}`, 'success');
                 setTimeout(refreshStatus, 2000);
             } else {
                 showToast(`✗ Sensör güncelleme başarısız: ${result?.message || 'hata'}`, 'error');

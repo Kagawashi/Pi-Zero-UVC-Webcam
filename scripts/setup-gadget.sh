@@ -148,6 +148,19 @@ start_gadget() {
         modprobe libcomposite 2>/dev/null || true
     fi
 
+    # Gerçek sistemde gadget zaten aynı rol ve tam FPS listesiyle UDC'ye bağlıysa
+    # UDC'yi söküp tekrar kurma (canlı UVC akışı varken UDC unbind dwc2'yi kilitler).
+    if [ "$CONFIGFS_ROOT" = "/sys/kernel/config" ] && [ -f "$GADGET/UDC" ]; then
+        local cur_udc cur_prod ival_lines
+        cur_udc=$(cat "$GADGET/UDC" 2>/dev/null | tr -d '[:space:]')
+        cur_prod=$(cat "$GADGET/strings/0x409/product" 2>/dev/null | tr -d '\r\n')
+        ival_lines=$(wc -l < "$FUNC/streaming/mjpeg/m/240p/dwFrameInterval" 2>/dev/null || echo 0)
+        if [ -n "$cur_udc" ] && [ "$cur_prod" = "$PRODUCT" ] && [ "$ival_lines" -ge 3 ]; then
+            echo "[✓] UVC Gadget zaten aktif ve güncel ($cur_prod on $cur_udc) — UDC yeniden bağlanmadı"
+            return 0
+        fi
+    fi
+
     # Clean existing gadget if present
     if [ -d "$GADGET" ]; then
         echo "[*] Cleaning up existing gadget: $GADGET"
@@ -259,7 +272,15 @@ start_gadget() {
         echo "$default_interval" > "$frame_dir/dwDefaultFrameInterval"
         echo "$min_bitrate" > "$frame_dir/dwMinBitRate"
         echo "$max_bitrate" > "$frame_dir/dwMaxBitRate"
-        printf '%b\n' "$intervals" > "$frame_dir/dwFrameInterval"
+        # ConfigFS uvcg_frame_dw_frame_interval_store her write(2) çağrısında
+        # önceki listeyi siler. Bash builtin printf her '\n' karakterinde ayrı
+        # write(2) yaptığı için sadece son satır (666666 = 15fps) kalıyordu.
+        # cat heredoc tüm satırları tek bir write(2) sistem çağrısıyla yazar.
+        local parsed_intervals
+        parsed_intervals=$(printf '%b\n' "$intervals")
+        cat <<EOF > "$frame_dir/dwFrameInterval"
+$parsed_intervals
+EOF
     }
 
     # Frame Descriptor 1: 640x480 (480p - VGA Standart / Göz Takibi)
@@ -272,7 +293,7 @@ start_gadget() {
     register_frame_desc "240p" 320 240 "111111" "83333\n111111\n166666\n333333\n666666" 3
 
     # Frame Descriptor 4: 400x400 (400p - Kare Göz Takibi)
-    register_frame_desc "400p" 400 400 "111111" "111111\n166666\n333333" 4
+    register_frame_desc "400p" 400 400 "111111" "83333\n111111\n166666\n333333\n666666" 4
 
     # Frame Descriptor 5: 800x600 (600p - SVGA)
     register_frame_desc "600p" 800 600 "333333" "166666\n333333\n666666" 5

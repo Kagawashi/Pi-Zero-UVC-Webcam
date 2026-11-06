@@ -529,14 +529,27 @@ def api_set_config():
     })
 
 
-def restart_uvc_service_async():
-    """UVC servisini HTTP isteğini bloklamadan arka planda güvenle yeniden başlatır."""
-    def _worker():
-        time.sleep(0.3)
-        run_cmd(["systemctl", "restart", "uvc-gadget"], timeout=30)
+PRESET_RESOLUTIONS = {(320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)}
 
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
+
+def schedule_safe_reboot():
+    """USB descriptor değişikliklerini (rol / özel çözünürlük) güvenle uygular.
+
+    Neden reboot: canlı bir UVC akışı varken UDC'yi unbind etmek (systemctl restart
+    uvc-gadget -> setup-gadget.sh start -> stop_gadget) Pi Zero'nun dwc2 sürücüsünü
+    kilitliyor ve Pi'yi Wi-Fi dahil tamamen erişilemez yapıyor. Temiz bir açılışta
+    gadget, host akışı açmadan önce kurulduğu için bu risk yok.
+    """
+    def _worker():
+        time.sleep(1.5)  # HTTP yanıtı tarayıcıya ulaşsın
+        run_cmd(["systemctl", "reboot"], timeout=10)
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def restart_uvc_service_async():
+    """Geriye dönük uyumluluk: artık canlı UDC restart yerine güvenli reboot planlar."""
+    schedule_safe_reboot()
 
 
 # ---- API: Rol Seçimi (Pupil Capture Eye0/Eye1/World/Generic) ----
@@ -557,16 +570,19 @@ def api_set_role():
             "message": f"Geçersiz rol '{role}'. Desteklenen roller: {list(ROLE_INFO.keys())}"
         }), 400
 
+    old_role = load_default_env().get("ROLE")
     env = save_default_env({"ROLE": role})
 
-    # UVC servisini arka planda güvenle yeniden başlat (HTTP bağlantısını bekletme)
-    restart_uvc_service_async()
+    needs_reboot = role != old_role
+    if needs_reboot:
+        schedule_safe_reboot()
 
     return jsonify({
         "status": "ok",
         "role": role,
         "role_title": ROLE_INFO[role]["title"],
-        "restart": "UVC servisi güncelleniyor (kısa süre içinde aktif olacak)",
+        "reboot": needs_reboot,
+        "restart": "USB kimliği değişti: Pi güvenli şekilde yeniden başlatılıyor (~45 sn)" if needs_reboot else "Rol zaten aktif",
         "env": env,
     })
 
@@ -630,6 +646,7 @@ def api_set_sensor():
         if r in ROLE_INFO:
             updates["ROLE"] = r
 
+    old_env = load_default_env()
     env = save_default_env(updates)
 
     # Sync to config.json as well
@@ -642,8 +659,19 @@ def api_set_sensor():
         cfg["role"] = str(data["role"]).strip().lower()
     save_config(cfg)
 
-    # UVC servisini arka planda güvenle yeniden başlat (HTTP bağlantısını bekletme)
-    restart_uvc_service_async()
+    # Tüm hazır çözünürlükler ve FPS değerleri USB descriptor'larında ZATEN kayıtlı;
+    # hangisinin kullanılacağını Pupil Capture (host) seçer. Bu yüzden FPS/hazır
+    # çözünürlük değişikliği için USB'yi yeniden kurmaya gerek yok.
+    role_changed = updates.get("ROLE", old_env.get("ROLE")) != old_env.get("ROLE")
+    old_res = (old_env.get("WIDTH"), old_env.get("HEIGHT"))
+    custom_changed = (w_int, h_int) not in PRESET_RESOLUTIONS and old_res != (str(w_int), str(h_int))
+    needs_reboot = role_changed or custom_changed
+
+    if needs_reboot:
+        schedule_safe_reboot()
+        msg = "USB kimliği değişti: Pi güvenli şekilde yeniden başlatılıyor (~45 sn)"
+    else:
+        msg = "Kaydedildi. Çözünürlük/FPS'i Pupil Capture içinden seçin (yeniden başlatma gerekmez)"
 
     return jsonify({
         "status": "ok",
@@ -652,7 +680,8 @@ def api_set_sensor():
         "width": env.get("WIDTH", "640"),
         "height": env.get("HEIGHT", "480"),
         "resolution": f"{w_int}x{h_int} @ {fps_val}fps",
-        "restart": "UVC servisi güncelleniyor (kısa süre içinde aktif olacak)",
+        "reboot": needs_reboot,
+        "restart": msg,
         "env": env,
     })
 
