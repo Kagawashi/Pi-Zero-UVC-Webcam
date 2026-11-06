@@ -85,7 +85,7 @@ static int uvc_stream_start_alloc(struct uvc_stream *stream)
 	int ret;
 
 	/* Allocate and export the buffers on the source. */
-	ret = video_source_alloc_buffers(stream->src, 4);
+	ret = video_source_alloc_buffers(stream->src, 8);
 	if (ret < 0) {
 		printf("Failed to allocate source buffers: %s (%d)\n",
 		       strerror(-ret), -ret);
@@ -186,7 +186,7 @@ static int uvc_stream_start_encoded(struct uvc_stream *stream)
 	int ret;
 
 	/* Allocate the buffers on the source. */
-	ret = video_source_alloc_buffers(stream->src, 4);
+	ret = video_source_alloc_buffers(stream->src, 8);
 	if (ret < 0) {
 		printf("Failed to allocate source buffers: %s (%d)\n",
 		       strerror(-ret), -ret);
@@ -194,7 +194,7 @@ static int uvc_stream_start_encoded(struct uvc_stream *stream)
 	}
 
 	/* Allocate buffers on the sink. */
-	ret = v4l2_alloc_buffers(sink, V4L2_MEMORY_MMAP, 4);
+	ret = v4l2_alloc_buffers(sink, V4L2_MEMORY_MMAP, 8);
 	if (ret < 0) {
 		printf("Failed to allocate sink buffers: %s (%d)\n",
 		       strerror(-ret), -ret);

@@ -118,61 +118,55 @@ static void libcamera_source_video_process(void *d)
 {
 	struct libcamera_source *src = (struct libcamera_source *)d;
 	Stream *stream = src->config->at(0).stream();
-	struct video_buffer buffer;
-	Request *request = nullptr;
-	char buf;
+	char drain[64];
 
 	/*
-	 * We need to perform a read here or the fd will stay active each time
-	 * the event loop cycles.
+	 * Drain all notification bytes from the non-blocking pipe and process
+	 * all completed requests in one wakeup to avoid extra select() roundtrips.
 	 */
-	read(src->pfds[0], &buf, 1);
-
-	{
-		std::lock_guard<std::mutex> lock(src->requests_mutex);
-		if (src->completed_requests.empty())
-			return;
-
-		request = src->completed_requests.front();
-		src->completed_requests.pop();
+	while (read(src->pfds[0], drain, sizeof(drain)) > 0) {
 	}
 
-	/* We have only a single buffer per request, so just pick the first */
-	FrameBuffer *framebuf = request->buffers().begin()->second;
+	while (true) {
+		Request *request = nullptr;
+		{
+			std::lock_guard<std::mutex> lock(src->requests_mutex);
+			if (src->completed_requests.empty())
+				return;
 
-	/*
-	 * If we have an encoder, then rather than simply detailing the buffer
-	 * here and passing it back to the sink we need to queue it to the
-	 * encoder. The encoder will queue that buffer to the sink after
-	 * compression.
-	 */
-	if (src->src.type == VIDEO_SOURCE_ENCODED && src->encoder) {
-		int64_t timestamp_ns = framebuf->metadata().timestamp;
-		StreamInfo info = src->encoder->getStreamInfo(stream);
-		auto span = src->mapped_buffers_.find(framebuf);
-		void *mem = (span != src->mapped_buffers_.end()) ? span->second.data() : nullptr;
-		void *dest = src->buffers.buffers[request->cookie()].mem;
-		unsigned int size = (span != src->mapped_buffers_.end())
-					    ? span->second.size()
-					    : framebuf->planes()[0].length;
-		int dmabuf_fd = framebuf->planes()[0].fd.get();
+			request = src->completed_requests.front();
+			src->completed_requests.pop();
+		}
 
-		src->encoder->EncodeBuffer(mem, dest, size, info, timestamp_ns / 1000,
-					   request->cookie(), dmabuf_fd);
+		/* We have only a single buffer per request, so just pick the first */
+		FrameBuffer *framebuf = request->buffers().begin()->second;
 
-		return;
+		if (src->src.type == VIDEO_SOURCE_ENCODED && src->encoder) {
+			int64_t timestamp_ns = framebuf->metadata().timestamp;
+			StreamInfo info = src->encoder->getStreamInfo(stream);
+			auto span = src->mapped_buffers_.find(framebuf);
+			void *mem = (span != src->mapped_buffers_.end()) ? span->second.data() : nullptr;
+			void *dest = src->buffers.buffers[request->cookie()].mem;
+			unsigned int size = (span != src->mapped_buffers_.end())
+						    ? span->second.size()
+						    : framebuf->planes()[0].length;
+			int dmabuf_fd = framebuf->planes()[0].fd.get();
+
+			src->encoder->EncodeBuffer(mem, dest, size, info, timestamp_ns / 1000,
+						   request->cookie(), dmabuf_fd);
+			continue;
+		}
+
+		struct video_buffer buffer;
+		buffer.index = request->cookie();
+		buffer.size = framebuf->planes()[0].length;
+		buffer.mem = NULL;
+		buffer.bytesused = framebuf->metadata().planes()[0].bytesused;
+		buffer.timestamp.tv_usec = framebuf->metadata().timestamp;
+		buffer.error = false;
+
+		src->src.handler(src->src.handler_data, &src->src, &buffer);
 	}
-
-	buffer.index = request->cookie();
-
-	/* TODO: Correct this for formats libcamera treats as multiplanar */
-	buffer.size = framebuf->planes()[0].length;
-	buffer.mem = NULL;
-	buffer.bytesused = framebuf->metadata().planes()[0].bytesused;
-	buffer.timestamp.tv_usec = framebuf->metadata().timestamp;
-	buffer.error = false;
-
-	src->src.handler(src->src.handler_data, &src->src, &buffer);
 }
 
 static void libcamera_source_destroy(struct video_source *s)

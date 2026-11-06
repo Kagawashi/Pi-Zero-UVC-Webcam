@@ -32,7 +32,6 @@ typedef unsigned long jpeg_mem_len_t;
 MjpegEncoder::MjpegEncoder()
 	: abortEncode_(false), abortOutput_(false), index_(0)
 {
-	output_thread_ = std::thread(&MjpegEncoder::outputThread, this);
 	for (int i = 0; i < NUM_ENC_THREADS; i++)
 		encode_thread_[i] = std::thread(std::bind(&MjpegEncoder::encodeThread, this, i));
 }
@@ -48,13 +47,6 @@ MjpegEncoder::~MjpegEncoder()
 		if (encode_thread_[i].joinable())
 			encode_thread_[i].join();
 	}
-	{
-		std::lock_guard<std::mutex> lock(output_mutex_);
-		abortOutput_ = true;
-		output_cond_var_.notify_all();
-	}
-	if (output_thread_.joinable())
-		output_thread_.join();
 
 	cleanupHwEncoder();
 }
@@ -446,6 +438,7 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 
 void MjpegEncoder::encodeThread(int num)
 {
+	(void)num;
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
 	EncodeItem encode_item;
@@ -486,16 +479,10 @@ void MjpegEncoder::encodeThread(int num)
 
 		frames++;
 
-		OutputItem output_item = {
-			encoded_buffer,
-			buffer_len,
-			encode_item.timestamp_us,
-			encode_item.index,
-			encode_item.cookie
-		};
-		std::lock_guard<std::mutex> lock(output_mutex_);
-		output_queue_[num].push(output_item);
-		output_cond_var_.notify_one();
+		if (!abortEncode_ && output_ready_callback_) {
+			output_ready_callback_(encoded_buffer, buffer_len,
+					       encode_item.timestamp_us, encode_item.cookie);
+		}
 	}
 }
 
