@@ -1,0 +1,32 @@
+[Unit]
+Description=Pi Zero UVC Camera Gadget
+After=network.target sys-kernel-config.mount
+Wants=sys-kernel-config.mount
+ConditionPathExists=/sys/class/udc
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/picam-uvc
+TimeoutStopSec=10
+
+# Önce ConfigFS gadget'ı oluştur
+ExecStartPre=/usr/local/bin/setup-gadget.sh start
+
+# Sonra UVC streaming başlat
+ExecStart=/usr/local/bin/start-uvc.sh
+
+# Durdurulunca gadget'ı da temizle
+ExecStopPost=/usr/local/bin/setup-gadget.sh stop
+
+# Çökerse otomatik yeniden başlat
+Restart=on-failure
+RestartSec=5
+
+# Güvenlik
+User=root
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=picam-uvc
+
+[Install]
+WantedBy=multi-user.target

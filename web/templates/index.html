@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Zero UVC Camera</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #232733;
+            --border: #2e3345;
+            --text: #e4e7ef;
+            --text2: #8b90a0;
+            --accent: #4f8cff;
+            --accent-hover: #6ba0ff;
+            --green: #34d399;
+            --red: #f87171;
+            --orange: #fbbf24;
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header h1 .cam-icon {
+            font-size: 1.5rem;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .status-dot.inactive { background: var(--red); }
+        .status-dot.unknown { background: var(--orange); }
+
+        main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ---- Kart Bileşeni ---- */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        /* ---- Durum Grid ---- */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-item {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1rem;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ---- Form Elemanları ---- */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text2);
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .range-row input[type="range"] { flex: 1; }
+
+        .range-value {
+            min-width: 36px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        select {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        select:focus {
+            border-color: var(--accent);
+        }
+
+        /* ---- Toggle Switch ---- */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .toggle-row + .toggle-row {
+            border-top: 1px solid var(--border);
+        }
+
+        .toggle-label {
+            font-size: 0.9rem;
+        }
+
+        .toggle-sub {
+            font-size: 0.75rem;
+            color: var(--text2);
+        }
+
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: var(--surface2);
+            border-radius: 24px;
+            transition: 0.2s;
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: var(--text2);
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        .switch input:checked + .slider {
+            background: var(--accent);
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(20px);
+            background: white;
+        }
+
+        /* ---- Butonlar ---- */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+
+        .btn-success {
+            background: #059669;
+            color: white;
+        }
+        .btn-success:hover { background: #047857; }
+
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .btn-danger:hover { background: #b91c1c; }
+
+        .btn-warning {
+            background: #d97706;
+            color: white;
+        }
+        .btn-warning:hover { background: #b45309; }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text2);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ---- Toast Bildirimi ---- */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+        .toast.info { background: var(--accent); }
+
+        /* ---- Info Kutusu ---- */
+        .info-box {
+            background: var(--surface2);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 14px 16px;
+            font-size: 0.85rem;
+            color: var(--text2);
+            line-height: 1.6;
+        }
+
+        .info-box code {
+            background: var(--bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+
+        /* ---- Yükleme Göstergesi ---- */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- Footer ---- */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text2);
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>
+            <span class="cam-icon">📷</span>
+            Pi Zero UVC Camera
+        </h1>
+        <div class="header-status">
+            <span class="status-dot {{ 'active' if status.uvc_active else 'inactive' }}" id="headerDot"></span>
+            <span id="headerStatus">UVC {{ 'Aktif' if status.uvc_active else 'Kapalı' }}</span>
+        </div>
+    </header>
+
+    <main>
+        <!-- ============================================================= -->
+        <!-- Sistem Durumu -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header">
+                📊 Sistem Durumu
+                <span style="margin-left:auto; font-weight:400; font-size:0.8rem; color:var(--text2)">
+                    Son güncelleme: <span id="lastUpdate">şimdi</span>
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="status-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">CPU Sıcaklığı</div>
+                        <div class="stat-value" id="statTemp">{{ status.cpu_temp }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">CPU Yükü</div>
+                        <div class="stat-value" id="statLoad">{{ status.cpu_load }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Bellek</div>
+                        <div class="stat-value" id="statMem">{{ status.memory }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Disk</div>
+                        <div class="stat-value" id="statDisk">{{ status.disk }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Uptime</div>
+                        <div class="stat-value" id="statUptime">{{ status.uptime }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">IP Adresi</div>
+                        <div class="stat-value" id="statIP">{{ status.ip_addresses }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Kamera</div>
+                        <div class="stat-value" id="statCam">{{ status.camera }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">UVC Cihazı</div>
+                        <div class="stat-value" id="statUVC">{{ status.uvc_device }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Pupil Rolü</div>
+                        <div class="stat-value" id="statRole" style="color:var(--accent);">{{ status.role_title or status.role }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Sensör Profili</div>
+                        <div class="stat-value" id="statSensor">{{ status.sensor_name or status.sensor }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Çözünürlük & FPS</div>
+                        <div class="stat-value" id="statResolution">{{ status.resolution }}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- Pupil Capture & Sensör Yapılandırması -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header">🎯 Pupil Capture & Sensör Yapılandırması</div>
+            <div class="card-body">
+                <div class="form-grid">
+                    <!-- Kamera Rolü -->
+                    <div class="form-group">
+                        <label for="cameraRole">Pupil Capture Kamera Rolü</label>
+                        <select id="cameraRole" onchange="onRoleChange(this.value)">
+                            <option value="eye0" {% if (env and env.ROLE == 'eye0') or (status and status.role == 'eye0') %}selected{% endif %}>
+                                Pupil Cam1 ID0 (eye0) — Sağ Göz Kamerası
+                            </option>
+                            <option value="eye1" {% if (env and env.ROLE == 'eye1') or (status and status.role == 'eye1') %}selected{% endif %}>
+                                Pupil Cam1 ID1 (eye1) — Sol Göz Kamerası
+                            </option>
+                            <option value="world" {% if (env and env.ROLE == 'world') or (status and status.role == 'world') %}selected{% endif %}>
+                                Pupil Cam1 ID2 (world) — Dünya / Sahne Kamerası
+                            </option>
+                            <option value="generic" {% if (env and env.ROLE == 'generic') or (status and status.role == 'generic') %}selected{% endif %}>
+                                Pi Zero UVC Camera (generic) — Standart UVC
+                            </option>
+                        </select>
+                        <div class="info-box" style="margin-top: 8px;">
+                            <span id="roleDetails">Pupil Capture otomatik olarak ID0/ID1 göz kameralarını tanır.</span>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="applyRole()" id="btnSaveRole">
+                                💾 Rolü Kaydet ve Uygula
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sensör Profili & Çözünürlük -->
+                    <div class="form-group">
+                        <label for="sensorProfile">CSI Kamera Sensör Profili</label>
+                        <select id="sensorProfile" onchange="onSensorChange(this.value)">
+                            <option value="ov5647" {% if (env and env.SENSOR == 'ov5647') or (status and status.sensor == 'ov5647') %}selected{% endif %}>
+                                OmniVision OV5647 (Pi Cam v1.3 - 90fps @ VGA)
+                            </option>
+                            <option value="imx219" {% if (env and env.SENSOR == 'imx219') or (status and status.sensor == 'imx219') %}selected{% endif %}>
+                                Sony IMX219 (Pi Cam v2 - 90fps @ VGA)
+                            </option>
+                            <option value="ov9281" {% if (env and env.SENSOR == 'ov9281') or (status and status.sensor == 'ov9281') %}selected{% endif %}>
+                                OmniVision OV9281 (Global Shutter NIR - 120fps @ VGA)
+                            </option>
+                        </select>
+
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div style="flex: 1;">
+                                <label for="sensorFps">Hedef FPS</label>
+                                <select id="sensorFps">
+                                    <option value="90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS</option>
+                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS</option>
+                                    <option value="60" {% if (env and env.FPS == '60') or (status and status.fps == '60') %}selected{% endif %}>60 FPS</option>
+                                    <option value="30" {% if (env and env.FPS == '30') or (status and status.fps == '30') %}selected{% endif %}>30 FPS</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="sensorResolution">Çözünürlük</label>
+                                <select id="sensorResolution">
+                                    <option value="640x480" {% if (status and status.width == '640' and status.height == '480') or (env and env.WIDTH == '640' and env.HEIGHT == '480') or (not status.width and not env.WIDTH) %}selected{% endif %}>640x480 (VGA - Göz Takibi)</option>
+                                    <option value="1280x720" {% if (status and status.width == '1280' and status.height == '720') or (env and env.WIDTH == '1280' and env.HEIGHT == '720') %}selected{% endif %}>1280x720 (720p - Dünya Sahnesi)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" onclick="applySensor()" id="btnSaveSensor">
+                                📷 Sensörü Kaydet ve Uygula
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box" style="margin-top: 16px;">
+                    💡 <strong>Rol veya sensör değiştirildiğinde:</strong> Ayarlar <code>/etc/default/picam-uvc</code> dosyasına güvenle kaydedilir ve <code>uvc-gadget</code> servisi yeniden başlatılarak yeni USB UVC tanımlayıcıları (VID/PID/String) etkinleştirilir.
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- Servis Kontrol -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header">⚙️ UVC Servis Yönetimi</div>
+            <div class="card-body">
+                <div class="btn-group" style="margin-bottom: 16px;">
+                    <button class="btn btn-success" onclick="serviceAction('start')" id="btnStart">
+                        ▶ Başlat
+                    </button>
+                    <button class="btn btn-danger" onclick="serviceAction('stop')" id="btnStop">
+                        ⏹ Durdur
+                    </button>
+                    <button class="btn btn-warning" onclick="serviceAction('restart')" id="btnRestart">
+                        🔄 Yeniden Başlat
+                    </button>
+                    <button class="btn btn-outline" onclick="rebootSystem()" id="btnReboot">
+                        ⏻ Sistemi Yeniden Başlat
+                    </button>
+                </div>
+                <div class="info-box">
+                    💡 <strong>UVC servisi</strong> başlatıldığında, Pi Zero bilgisayarınızda
+                    standart bir USB webcam olarak görünür. Windows Kamera uygulamasını veya
+                    OBS Studio'yu açıp "Pi Zero UVC Camera" kaynağını seçebilirsiniz.
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- Kamera Ayarları -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header">🎛️ Kamera Ayarları</div>
+            <div class="card-body">
+                <!-- Toggle Ayarları -->
+                <div style="margin-bottom: 20px;">
+                    <div class="toggle-row">
+                        <div>
+                            <div class="toggle-label">Yatay Çevirme (H-Flip)</div>
+                            <div class="toggle-sub">Görüntüyü yatay eksende çevir</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="hflip" {{ 'checked' if config.hflip }}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div>
+                            <div class="toggle-label">Dikey Çevirme (V-Flip)</div>
+                            <div class="toggle-sub">Görüntüyü dikey eksende çevir (kamera ters monte edilmişse)</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="vflip" {{ 'checked' if config.vflip }}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div>
+                            <div class="toggle-label">Otomatik Pozlama</div>
+                            <div class="toggle-sub">Kapatıldığında manuel pozlama değeri kullanılır</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="auto_exposure" {{ 'checked' if config.auto_exposure }}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Slider Ayarları -->
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="brightness">Parlaklık</label>
+                        <div class="range-row">
+                            <input type="range" id="brightness" min="0" max="100"
+                                value="{{ config.brightness }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.brightness }}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="contrast">Kontrast</label>
+                        <div class="range-row">
+                            <input type="range" id="contrast" min="0" max="100"
+                                value="{{ config.contrast }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.contrast }}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="saturation">Doygunluk</label>
+                        <div class="range-row">
+                            <input type="range" id="saturation" min="0" max="100"
+                                value="{{ config.saturation }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.saturation }}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="sharpness">Keskinlik</label>
+                        <div class="range-row">
+                            <input type="range" id="sharpness" min="0" max="100"
+                                value="{{ config.sharpness }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.sharpness }}</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="awb_mode">Beyaz Dengesi</label>
+                        <select id="awb_mode">
+                            <option value="auto" {{ 'selected' if config.awb_mode == 'auto' }}>Otomatik</option>
+                            <option value="daylight" {{ 'selected' if config.awb_mode == 'daylight' }}>Gün Işığı</option>
+                            <option value="cloudy" {{ 'selected' if config.awb_mode == 'cloudy' }}>Bulutlu</option>
+                            <option value="tungsten" {{ 'selected' if config.awb_mode == 'tungsten' }}>Tungsten</option>
+                            <option value="fluorescent" {{ 'selected' if config.awb_mode == 'fluorescent' }}>Floresan</option>
+                            <option value="indoor" {{ 'selected' if config.awb_mode == 'indoor' }}>İç Mekan</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="exposureGroup">
+                        <label for="exposure_value">Manuel Pozlama (µs)</label>
+                        <div class="range-row">
+                            <input type="range" id="exposure_value" min="100" max="50000" step="100"
+                                value="{{ config.exposure_value }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.exposure_value }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center;">
+                    <button class="btn btn-primary" onclick="saveSettings()" id="btnSave">
+                        💾 Ayarları Kaydet ve Uygula
+                    </button>
+                    <button class="btn btn-outline" onclick="resetDefaults()">
+                        ↺ Varsayılana Sıfırla
+                    </button>
+                </div>
+
+                <div class="info-box" style="margin-top: 16px;">
+                    ⚠️ Ayarlar kaydedildiğinde UVC servisi otomatik olarak yeniden başlatılır.
+                    Bu sırada bilgisayarınızdaki webcam bağlantısı kısa süreliğine kesilir.
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- Kullanım Bilgisi -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header">📖 Kullanım Kılavuzu</div>
+            <div class="card-body">
+                <div class="info-box" style="border-left-color: var(--green);">
+                    <strong>🔌 Bağlantı:</strong><br>
+                    Pi Zero'nun <code>USB</code> portunu (güç portu DEĞİL) bilgisayarınıza data kablosuyla bağlayın.<br><br>
+
+                    <strong>🖥️ Windows'ta Kullanım:</strong><br>
+                    • <strong>Kamera Uygulaması:</strong> Başlat → Kamera → kaynak olarak "Pi Zero UVC Camera" seçin<br>
+                    • <strong>OBS Studio:</strong> Kaynak Ekle → Video Yakalama Cihazı → "Pi Zero UVC Camera"<br>
+                    • <strong>Zoom/Teams:</strong> Ayarlar → Video → Kamera → "Pi Zero UVC Camera"<br><br>
+
+                    <strong>🌐 Web Paneli:</strong><br>
+                    Bu sayfaya her zaman <code>http://{{ status.hostname }}.local:8080</code> adresinden erişebilirsiniz.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        Pi Zero UVC Camera &middot; {{ status.hostname }} &middot; OV5647
+    </footer>
+
+    <!-- Toast Container -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // =====================================================================
+        // Yardımcı Fonksiyonlar
+        // =====================================================================
+
+        function updateRangeLabel(input) {
+            const label = input.parentElement.querySelector('.range-value');
+            if (label) label.textContent = input.value;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        async function apiCall(url, options = {}) {
+            try {
+                const resp = await fetch(url, options);
+                return await resp.json();
+            } catch (e) {
+                showToast('Bağlantı hatası: ' + e.message, 'error');
+                return null;
+            }
+        }
+
+        // =====================================================================
+        // Otomatik Pozlama Toggle
+        // =====================================================================
+
+        function updateExposureVisibility() {
+            const autoExp = document.getElementById('auto_exposure').checked;
+            const expGroup = document.getElementById('exposureGroup');
+            expGroup.style.opacity = autoExp ? '0.4' : '1';
+            document.getElementById('exposure_value').disabled = autoExp;
+        }
+
+        document.getElementById('auto_exposure').addEventListener('change', updateExposureVisibility);
+        updateExposureVisibility();
+
+        // =====================================================================
+        // Ayarları Kaydet
+        // =====================================================================
+
+        async function saveSettings() {
+            const btn = document.getElementById('btnSave');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+
+            const config = {
+                hflip: document.getElementById('hflip').checked,
+                vflip: document.getElementById('vflip').checked,
+                auto_exposure: document.getElementById('auto_exposure').checked,
+                brightness: parseInt(document.getElementById('brightness').value),
+                contrast: parseInt(document.getElementById('contrast').value),
+                saturation: parseInt(document.getElementById('saturation').value),
+                sharpness: parseInt(document.getElementById('sharpness').value),
+                exposure_value: parseInt(document.getElementById('exposure_value').value),
+                awb_mode: document.getElementById('awb_mode').value,
+            };
+
+            const result = await apiCall('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config),
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = '💾 Ayarları Kaydet ve Uygula';
+
+            if (result && result.status === 'ok') {
+                showToast('✓ Ayarlar kaydedildi' + (result.restart ? ' — ' + result.restart : ''), 'success');
+            } else {
+                showToast('✗ Kaydetme başarısız', 'error');
+            }
+        }
+
+        // =====================================================================
+        // Varsayılana Sıfırla
+        // =====================================================================
+
+        function resetDefaults() {
+            document.getElementById('hflip').checked = false;
+            document.getElementById('vflip').checked = false;
+            document.getElementById('auto_exposure').checked = true;
+            document.getElementById('brightness').value = 50;
+            document.getElementById('contrast').value = 50;
+            document.getElementById('saturation').value = 50;
+            document.getElementById('sharpness').value = 50;
+            document.getElementById('exposure_value').value = 1000;
+            document.getElementById('awb_mode').value = 'auto';
+
+            // Label'ları güncelle
+            document.querySelectorAll('input[type="range"]').forEach(updateRangeLabel);
+            updateExposureVisibility();
+            showToast('Varsayılan değerler yüklendi — Kaydetmeyi unutmayın', 'info');
+        }
+
+        // =====================================================================
+        // Servis Kontrol
+        // =====================================================================
+
+        async function serviceAction(action) {
+            const labels = { start: 'Başlatılıyor', stop: 'Durduruluyor', restart: 'Yeniden başlatılıyor' };
+            showToast(`${labels[action]}...`, 'info');
+
+            const result = await apiCall(`/api/service/${action}`);
+
+            if (result && result.status === 'ok') {
+                showToast(`✓ Servis ${action === 'start' ? 'başlatıldı' : action === 'stop' ? 'durduruldu' : 'yeniden başlatıldı'}`, 'success');
+                setTimeout(refreshStatus, 2000);
+            } else {
+                showToast(`✗ İşlem başarısız: ${result?.error || 'bilinmeyen hata'}`, 'error');
+            }
+        }
+
+        async function rebootSystem() {
+            if (!confirm('Sistem yeniden başlatılacak. Emin misiniz?')) return;
+            showToast('Sistem yeniden başlatılıyor...', 'info');
+            await apiCall('/api/reboot');
+        }
+
+        // =====================================================================
+        // Pupil Capture Rolü & Sensör Yönetimi
+        // =====================================================================
+
+        const ROLE_HELP = {
+            eye0: 'Sağ Göz Kamerası: USB VID 0x05a3, PID 0x9230, "Pupil Cam1 ID0". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
+            eye1: 'Sol Göz Kamerası: USB VID 0x05a3, PID 0x9231, "Pupil Cam1 ID1". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
+            world: 'Dünya / Sahne Kamerası: USB VID 0x05a3, PID 0x9232, "Pupil Cam1 ID2". 30/60fps VGA veya 720p sahne kaydı için önerilir.',
+            generic: 'Standart UVC Kamera: USB VID 0x1d6b, PID 0x0104, "Pi Zero UVC Camera". Genel webcam uygulamaları için uygundur.',
+        };
+
+        function onRoleChange(role) {
+            const desc = ROLE_HELP[role] || '';
+            const box = document.getElementById('roleDetails');
+            if (box) box.textContent = desc;
+        }
+
+        function onSensorChange(sensor) {
+            const fpsSelect = document.getElementById('sensorFps');
+            if (sensor === 'ov9281') {
+                fpsSelect.value = '120';
+            } else if (sensor === 'ov5647' || sensor === 'imx219') {
+                if (fpsSelect.value === '120') fpsSelect.value = '90';
+            }
+        }
+
+        async function applyRole() {
+            const btn = document.getElementById('btnSaveRole');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+
+            const role = document.getElementById('cameraRole').value;
+            const result = await apiCall('/api/role', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: role }),
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = '💾 Rolü Kaydet ve Uygula';
+
+            if (result && result.status === 'ok') {
+                showToast(`✓ Rol '${role}' olarak ayarlandı${result.restart ? ' — ' + result.restart : ''}`, 'success');
+                setTimeout(refreshStatus, 1500);
+            } else {
+                showToast(`✗ Rol güncelleme başarısız: ${result?.message || 'hata'}`, 'error');
+            }
+        }
+
+        async function applySensor() {
+            const btn = document.getElementById('btnSaveSensor');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+
+            const sensor = document.getElementById('sensorProfile').value;
+            const fps = document.getElementById('sensorFps').value;
+            const resParts = document.getElementById('sensorResolution').value.split('x');
+            const width = resParts[0];
+            const height = resParts[1];
+
+            const result = await apiCall('/api/sensor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sensor: sensor, fps: fps, width: width, height: height }),
+            });
+
+            btn.disabled = false;
+            btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+
+            if (result && result.status === 'ok') {
+                showToast(`✓ Sensör '${sensor}' (${width}x${height} @ ${fps}fps) ayarlandı${result.restart ? ' — ' + result.restart : ''}`, 'success');
+                setTimeout(refreshStatus, 1500);
+            } else {
+                showToast(`✗ Sensör güncelleme başarısız: ${result?.message || 'hata'}`, 'error');
+            }
+        }
+
+        // =====================================================================
+        // Durum Güncelleme
+        // =====================================================================
+
+        async function refreshStatus() {
+            const data = await apiCall('/api/status');
+            if (!data) return;
+
+            document.getElementById('statTemp').textContent = data.cpu_temp;
+            document.getElementById('statLoad').textContent = data.cpu_load;
+            document.getElementById('statMem').textContent = data.memory;
+            document.getElementById('statDisk').textContent = data.disk;
+            document.getElementById('statUptime').textContent = data.uptime;
+            document.getElementById('statIP').textContent = data.ip_addresses;
+            document.getElementById('statCam').textContent = data.camera;
+            document.getElementById('statUVC').textContent = data.uvc_device;
+
+            if (data.role_title || data.role) {
+                const el = document.getElementById('statRole');
+                if (el) el.textContent = data.role_title || data.role;
+            }
+            if (data.sensor_name || data.sensor) {
+                const el = document.getElementById('statSensor');
+                if (el) el.textContent = data.sensor_name || data.sensor;
+            }
+            if (data.resolution) {
+                const el = document.getElementById('statResolution');
+                if (el) el.textContent = data.resolution;
+            }
+
+            // Header durumu
+            const dot = document.getElementById('headerDot');
+            const statusText = document.getElementById('headerStatus');
+            dot.className = `status-dot ${data.uvc_active ? 'active' : 'inactive'}`;
+            statusText.textContent = `UVC ${data.uvc_active ? 'Aktif' : 'Kapalı'}`;
+
+            // Zaman damgası
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent =
+                now.toLocaleTimeString('tr-TR');
+        }
+
+        // İlk açılışta yardım metnini ayarla
+        onRoleChange(document.getElementById('cameraRole').value);
+
+        // Her 5 saniyede durum güncelle
+        setInterval(refreshStatus, 5000);
+    </script>
+</body>
+</html>

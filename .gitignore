@@ -1,0 +1,21 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C / build artifacts
+*.o
+*.a
+*.so
+build/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment & temporary files
+.env.local
+*.swp
+*.bak
+*.tmp
