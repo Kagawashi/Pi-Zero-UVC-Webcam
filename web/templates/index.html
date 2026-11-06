@@ -193,7 +193,7 @@
             font-weight: 600;
         }
 
-        select {
+        select, input[type="number"], input[type="text"] {
             background: var(--surface2);
             color: var(--text);
             border: 1px solid var(--border);
@@ -203,7 +203,7 @@
             outline: none;
         }
 
-        select:focus {
+        select:focus, input[type="number"]:focus, input[type="text"]:focus {
             border-color: var(--accent);
         }
 
@@ -520,26 +520,51 @@
                             </option>
                         </select>
 
+                        {% set cur_w = (status and status.width) or (env and env.WIDTH) or '640' %}
+                        {% set cur_h = (status and status.height) or (env and env.HEIGHT) or '480' %}
+                        {% set cur_res = cur_w ~ 'x' ~ cur_h %}
+                        {% set is_preset = cur_res in ['320x240', '400x400', '640x480', '800x600', '1280x720'] %}
+
                         <div style="display: flex; gap: 10px; margin-top: 10px;">
                             <div style="flex: 1;">
                                 <label for="sensorFps">Hedef FPS</label>
                                 <select id="sensorFps">
-                                    <option value="90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS</option>
-                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS</option>
+                                    <option value="90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS (Önerilen Göz Takibi)</option>
+                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS (Yüksek Hız - OV9281)</option>
                                     <option value="60" {% if (env and env.FPS == '60') or (status and status.fps == '60') %}selected{% endif %}>60 FPS</option>
                                     <option value="30" {% if (env and env.FPS == '30') or (status and status.fps == '30') %}selected{% endif %}>30 FPS</option>
+                                    <option value="15" {% if (env and env.FPS == '15') or (status and status.fps == '15') %}selected{% endif %}>15 FPS</option>
                                 </select>
                             </div>
                             <div style="flex: 1;">
                                 <label for="sensorResolution">Çözünürlük</label>
-                                <select id="sensorResolution">
-                                    <option value="640x480" {% if (status and status.width == '640' and status.height == '480') or (env and env.WIDTH == '640' and env.HEIGHT == '480') or (not status.width and not env.WIDTH) %}selected{% endif %}>640x480 (VGA - Göz Takibi)</option>
-                                    <option value="1280x720" {% if (status and status.width == '1280' and status.height == '720') or (env and env.WIDTH == '1280' and env.HEIGHT == '720') %}selected{% endif %}>1280x720 (720p - Dünya Sahnesi)</option>
+                                <select id="sensorResolution" onchange="onResolutionChange(this.value)">
+                                    <option value="320x240" {% if cur_res == '320x240' %}selected{% endif %}>320x240 (320p / Hızlı Göz Takibi / Düşük CPU)</option>
+                                    <option value="400x400" {% if cur_res == '400x400' %}selected{% endif %}>400x400 (400p / Kare Göz Takibi)</option>
+                                    <option value="640x480" {% if cur_res == '640x480' %}selected{% endif %}>640x480 (480p / VGA Standart)</option>
+                                    <option value="800x600" {% if cur_res == '800x600' %}selected{% endif %}>800x600 (600p / SVGA)</option>
+                                    <option value="1280x720" {% if cur_res == '1280x720' %}selected{% endif %}>1280x720 (720p / HD Dünya Sahnesi)</option>
+                                    <option value="custom" {% if not is_preset %}selected{% endif %}>⚙️ Özel Çözünürlük (Kullanıcı Tanımlı)...</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div style="margin-top: 10px;">
+                        <!-- Özel Çözünürlük Giriş Alanları -->
+                        <div id="customResolutionInputs" style="display: {{ 'flex' if not is_preset else 'none' }}; gap: 10px; margin-top: 10px;">
+                            <div style="flex: 1;">
+                                <label for="customWidth">Genişlik (Width - px)</label>
+                                <input type="number" id="customWidth" min="160" max="1920" step="2" value="{{ cur_w }}" placeholder="Örn: 320">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="customHeight">Yükseklik (Height - px)</label>
+                                <input type="number" id="customHeight" min="120" max="1080" step="2" value="{{ cur_h }}" placeholder="Örn: 240">
+                            </div>
+                        </div>
+                        <div id="customResHint" class="info-box" style="margin-top: 8px; font-size: 0.8rem; display: {{ 'block' if not is_preset else 'none' }};">
+                            💡 <strong>Özel Çözünürlük İpucu:</strong> Çözünürlükler çift sayı olmalıdır (160x120 - 1920x1080). <strong>320x240</strong> gibi düşük çözünürlükler, Pi Zero W'nin tek çekirdekli işlemcisinde yazılımsal JPEG sıkıştırma süresini ~80ms'den ~18ms'ye düşürerek <strong>Pupil Capture'da 60-90 FPS akıcı göz takibi</strong> elde etmenizi sağlar.
+                        </div>
+
+                        <div style="margin-top: 12px;">
                             <button class="btn btn-primary" onclick="applySensor()" id="btnSaveSensor">
                                 📷 Sensörü Kaydet ve Uygula
                             </button>
@@ -893,6 +918,23 @@
             }
         }
 
+        function onResolutionChange(val) {
+            const customBox = document.getElementById('customResolutionInputs');
+            const customHint = document.getElementById('customResHint');
+            if (val === 'custom') {
+                customBox.style.display = 'flex';
+                if (customHint) customHint.style.display = 'block';
+            } else {
+                customBox.style.display = 'none';
+                if (customHint) customHint.style.display = 'none';
+                const parts = val.split('x');
+                if (parts.length === 2) {
+                    document.getElementById('customWidth').value = parts[0];
+                    document.getElementById('customHeight').value = parts[1];
+                }
+            }
+        }
+
         async function applySensor() {
             const btn = document.getElementById('btnSaveSensor');
             btn.disabled = true;
@@ -900,9 +942,35 @@
 
             const sensor = document.getElementById('sensorProfile').value;
             const fps = document.getElementById('sensorFps').value;
-            const resParts = document.getElementById('sensorResolution').value.split('x');
-            const width = resParts[0];
-            const height = resParts[1];
+            const resMode = document.getElementById('sensorResolution').value;
+
+            let width, height;
+            if (resMode === 'custom') {
+                width = parseInt(document.getElementById('customWidth').value, 10);
+                height = parseInt(document.getElementById('customHeight').value, 10);
+                if (isNaN(width) || isNaN(height)) {
+                    showToast('Lütfen geçerli genişlik ve yükseklik girin', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    return;
+                }
+                if (width % 2 !== 0 || height % 2 !== 0) {
+                    showToast('Çözünürlük değerleri çift sayı (even) olmalıdır', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    return;
+                }
+                if (width < 160 || width > 1920 || height < 120 || height > 1080) {
+                    showToast('Çözünürlük 160x120 ile 1920x1080 arasında olmalıdır', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    return;
+                }
+            } else {
+                const resParts = resMode.split('x');
+                width = parseInt(resParts[0], 10);
+                height = parseInt(resParts[1], 10);
+            }
 
             const result = await apiCall('/api/sensor', {
                 method: 'POST',

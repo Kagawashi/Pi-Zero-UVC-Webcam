@@ -213,6 +213,29 @@ Pupil Capture'ın Pi Zero ile çökmeden tam uyumlu çalışması için Windows 
 
 ---
 
+## 11. Özel Çözünürlük & Yüksek FPS (90 FPS) Rehberi
+
+### Web Panelinden Çözünürlük Ayarlama
+Web paneline (`http://pizero.local:8080`) girdiğinizde **"Sensör Profili & Çözünürlük"** bölümünden:
+- **320x240 (Önerilen Göz Takibi / 90 FPS):** Pi Zero W'nin tek çekirdekli işlemcisinde JPEG sıkıştırma süresini ~80ms'den ~18ms'ye düşürerek tam 60-90 FPS akıcı göz takibi sağlar.
+- **400x400 (Kare Göz Takibi):** Kare sensör alanı isteyen göz algoritmaları için optimize edilmiştir.
+- **640x480 (VGA):** Standart UVC çözünürlüğü.
+- **⚙️ Özel Çözünürlük:** Açılan kutucuklara dilediğiniz genişlik ve yükseklik değerini (çift sayı, 160x120 - 1920x1080) girip **"📷 Sensörü Kaydet ve Uygula"** butonuna basarak anında etkinleştirebilirsiniz.
+
+### Pupil Capture'da Neden 10 FPS Görünür ve Nasıl Çözülür?
+1. **İşlemci Darboğazı:** 640x480 çözünürlükte yazılımsal JPEG sıkıştırması nedeniyle Pi Zero işlemcisi %100 yük altına girer ve 10-12 FPS üretir. Çözünürlüğü **`320x240`** yaptığınızda işlemci yükü %75 düşer ve FPS fırlar.
+2. **Ortam Işığı & Pozlama:** Loş ışıkta sensör otomatik pozlamayı 100ms'ye kadar uzatır. Web panelinden Otomatik Pozlamayı kapatıp manuel pozlamayı ayarlayarak veya ortamı iyi aydınlatarak tam 90 FPS elde edebilirsiniz.
+
+### Pupil Capture'da Kayıt Alma ve Gerçek FPS'i Ölçme
+- Kayıt almak için Pupil Capture'da **`R`** tuşuna basın.
+- Kayıtlar `C:\Users\murat\recordings\<TARİH>\<SESSION>\` klasörüne kaydedilir.
+- Gerçek kayıt FPS'ini ölçmek için PowerShell'de şu komutu çalıştırabilirsiniz:
+  ```powershell
+  python -c "import numpy as np, glob, os; recs = sorted(glob.glob(os.path.expanduser('~/recordings/*/*/eye0_timestamps.npy'))); ts = np.load(recs[-1]) if recs else None; print('Gerçek Kayıt FPS:', round(1.0/np.mean(np.diff(ts)), 1) if ts is not None and len(ts)>1 else 'Kayıt bulunamadı')"
+  ```
+
+---
+
 ## 📄 Lisans
 
 Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır. Açık kaynak olarak serbestçe kullanılabilir, geliştirilebilir ve dağıtılabilir.

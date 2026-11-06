@@ -15,7 +15,7 @@ Includes **90 FPS hardware MJPEG streaming**, a browser-based **Web Control Pane
 ## ✨ Features
 
 - **🎯 Authentic Pupil Labs Emulation**: Full USB descriptors, VID/PID (`0x05a3:0x9230`), and serial numbers recognized immediately by **Pupil Capture** as `Pupil Cam1 ID0` (eye0), `ID1` (eye1), or `ID2` (world).
-- **🚀 90 FPS Hardware Encoding**: Leverages Broadcom VideoCore IV hardware MJPEG encoder to achieve up to **90 FPS @ 640×480** with low latency on a lightweight Pi Zero.
+- **🚀 90 FPS Hardware Encoding & Custom Resolutions**: Leverages Broadcom VideoCore IV hardware MJPEG encoder to achieve up to **90 FPS**. Supports expanded presets (`320x240`, `400x400`, `640x480`, `800x600`, `1280x720`) and arbitrary custom resolutions. Selecting **320x240** reduces software JPEG CPU encoding by 75%, maintaining steady 60-90 FPS on single-core Pi Zero W!
 - **🔌 Dual-Function Composite Gadget (Direct USB SSH)**: Simultaneously exposes both a UVC Webcam and an Ethernet adapter (RNDIS). Connect to SSH (`ssh pi@pizero.local`) and the web dashboard directly through the single USB cable without any Wi-Fi network!
 - **🌐 Web Control Panel (:8080)**: On-device Flask web service to switch camera roles, flip orientation, adjust brightness/contrast, and restart services from any browser.
 - **🌍 Multi-Wi-Fi Network Roaming**: Pre-configure multiple Wi-Fi networks (home router, mobile hotspot, lab); Pi Zero auto-connects to whichever is in range.

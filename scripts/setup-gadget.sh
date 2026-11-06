@@ -235,43 +235,65 @@ start_gadget() {
         echo 1 > "$FUNC/streaming/mjpeg/m/bFormatIndex"
         echo 1 > "$FUNC/streaming/mjpeg/m/bmFlags"
     fi
-    (echo 1 > "$FUNC/streaming/mjpeg/m/bDefaultFrameIndex") 2>/dev/null || true
 
-    # Frame Descriptor 1: 640x480 (480p)
-    mkdir -p "$FUNC/streaming/mjpeg/m/480p"
-    if [ "$CONFIGFS_ROOT" != "/sys/kernel/config" ]; then
-        echo 1 > "$FUNC/streaming/mjpeg/m/480p/bFrameIndex"
-    fi
-    echo 640       > "$FUNC/streaming/mjpeg/m/480p/wWidth"
-    echo 480       > "$FUNC/streaming/mjpeg/m/480p/wHeight"
-    echo 614400    > "$FUNC/streaming/mjpeg/m/480p/dwMaxVideoFrameBufferSize"
-    echo "$DEFAULT_INTERVAL_480P" > "$FUNC/streaming/mjpeg/m/480p/dwDefaultFrameInterval"
-    echo 73728000  > "$FUNC/streaming/mjpeg/m/480p/dwMinBitRate"
-    echo 589824000 > "$FUNC/streaming/mjpeg/m/480p/dwMaxBitRate"
-    cat <<EOF > "$FUNC/streaming/mjpeg/m/480p/dwFrameInterval"
-83333
-111111
-166666
-333333
-666666
-EOF
+    # Helper function to register an MJPEG frame descriptor
+    register_frame_desc() {
+        local name="$1"
+        local width="$2"
+        local height="$3"
+        local default_interval="$4"
+        local intervals="$5"
+        local frame_index="${6:-}"
+        local min_bitrate="${7:-$(( width * height * 16 * 15 ))}"
+        local max_bitrate="${8:-$(( width * height * 16 * 120 ))}"
 
-    # Frame Descriptor 2: 1280x720 (720p)
-    mkdir -p "$FUNC/streaming/mjpeg/m/720p"
-    if [ "$CONFIGFS_ROOT" != "/sys/kernel/config" ]; then
-        echo 2 > "$FUNC/streaming/mjpeg/m/720p/bFrameIndex"
-    fi
-    echo 1280      > "$FUNC/streaming/mjpeg/m/720p/wWidth"
-    echo 720       > "$FUNC/streaming/mjpeg/m/720p/wHeight"
-    echo 1843200   > "$FUNC/streaming/mjpeg/m/720p/dwMaxVideoFrameBufferSize"
-    echo 333333    > "$FUNC/streaming/mjpeg/m/720p/dwDefaultFrameInterval"
-    echo 110592000 > "$FUNC/streaming/mjpeg/m/720p/dwMinBitRate"
-    echo 442368000 > "$FUNC/streaming/mjpeg/m/720p/dwMaxBitRate"
-    cat <<EOF > "$FUNC/streaming/mjpeg/m/720p/dwFrameInterval"
-166666
-333333
-666666
-EOF
+        local frame_dir="$FUNC/streaming/mjpeg/m/$name"
+        mkdir -p "$frame_dir"
+        if [ "$CONFIGFS_ROOT" != "/sys/kernel/config" ] && [ -n "$frame_index" ]; then
+            echo "$frame_index" > "$frame_dir/bFrameIndex"
+        fi
+        echo "$width"       > "$frame_dir/wWidth"
+        echo "$height"      > "$frame_dir/wHeight"
+        local buf_size=$(( width * height * 2 ))
+        echo "$buf_size"    > "$frame_dir/dwMaxVideoFrameBufferSize"
+        echo "$default_interval" > "$frame_dir/dwDefaultFrameInterval"
+        echo "$min_bitrate" > "$frame_dir/dwMinBitRate"
+        echo "$max_bitrate" > "$frame_dir/dwMaxBitRate"
+        printf '%b\n' "$intervals" > "$frame_dir/dwFrameInterval"
+    }
+
+    # Frame Descriptor 1: 640x480 (480p - VGA Standart / Göz Takibi)
+    register_frame_desc "480p" 640 480 "$DEFAULT_INTERVAL_480P" "83333\n111111\n166666\n333333\n666666" 1 73728000 589824000
+
+    # Frame Descriptor 2: 1280x720 (720p - HD Sahne)
+    register_frame_desc "720p" 1280 720 "333333" "166666\n333333\n666666" 2 110592000 442368000
+
+    # Frame Descriptor 3: 320x240 (240p / 320p - Yüksek Hızlı Göz Takibi / Düşük CPU)
+    register_frame_desc "240p" 320 240 "111111" "83333\n111111\n166666\n333333\n666666" 3
+
+    # Frame Descriptor 4: 400x400 (400p - Kare Göz Takibi)
+    register_frame_desc "400p" 400 400 "111111" "111111\n166666\n333333" 4
+
+    # Frame Descriptor 5: 800x600 (600p - SVGA)
+    register_frame_desc "600p" 800 600 "333333" "166666\n333333\n666666" 5
+
+    # Frame Descriptor 6: Dinamik Özel Çözünürlük (Kullanıcı Tanımlı)
+    CFG_W="${WIDTH:-}"
+    CFG_H="${HEIGHT:-}"
+    DEFAULT_FRAME_INDEX=1
+    case "${CFG_W}x${CFG_H}" in
+        640x480|"") DEFAULT_FRAME_INDEX=1 ;;
+        1280x720)   DEFAULT_FRAME_INDEX=2 ;;
+        320x240)    DEFAULT_FRAME_INDEX=3 ;;
+        400x400)    DEFAULT_FRAME_INDEX=4 ;;
+        800x600)    DEFAULT_FRAME_INDEX=5 ;;
+        *)
+            echo "[i] Özel çözünürlük ConfigFS'e ekleniyor: ${CFG_W}x${CFG_H}"
+            register_frame_desc "custom" "$CFG_W" "$CFG_H" "111111" "83333\n111111\n166666\n333333\n666666" 6
+            DEFAULT_FRAME_INDEX=6
+            ;;
+    esac
+    (echo "$DEFAULT_FRAME_INDEX" > "$FUNC/streaming/mjpeg/m/bDefaultFrameIndex") 2>/dev/null || true
 
     # Color Matching Descriptor
     mkdir -p "$FUNC/streaming/color_matching/default"

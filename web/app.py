@@ -529,38 +529,50 @@ def api_set_sensor():
             "message": f"Geçersiz sensör '{sensor}'. Desteklenen sensörler: {list(SENSOR_INFO.keys())}"
         }), 400
 
-    # Validate FPS strictly
+    # Validate FPS
     fps_raw = data.get("fps")
     if fps_raw is None:
         fps_val = str(SENSOR_INFO[sensor]["default_fps"])
     else:
         fps_val = str(fps_raw).strip()
 
-    allowed_fps = [30, 60, 90]
-    if SENSOR_INFO[sensor].get("max_vga_fps", 90) >= 120:
-        allowed_fps.append(120)
-
+    allowed_fps = [15, 30, 60, 90, 120]
     if not fps_val.isdigit() or int(fps_val) not in allowed_fps:
-        return jsonify({"status": "error", "message": "Geçersiz FPS değeri"}), 400
+        return jsonify({"status": "error", "message": "Geçersiz FPS değeri. Desteklenen: 15, 30, 60, 90, 120"}), 400
 
-    # Validate Width and Height strictly
+    # Validate Width and Height (supports presets and custom resolutions)
     width_raw = data.get("width")
     width_val = "640" if width_raw is None else str(width_raw).strip()
 
     height_raw = data.get("height")
     height_val = "480" if height_raw is None else str(height_raw).strip()
 
-    if (width_val, height_val) not in (("640", "480"), ("1280", "720")):
-        return jsonify({"status": "error", "message": "Geçersiz çözünürlük değeri"}), 400
+    try:
+        w_int = int(width_val)
+        h_int = int(height_val)
+        if w_int < 160 or w_int > 1920 or h_int < 120 or h_int > 1080:
+            return jsonify({"status": "error", "message": "Çözünürlük 160x120 ile 1920x1080 arasında olmalıdır"}), 400
+        if w_int % 2 != 0 or h_int % 2 != 0:
+            return jsonify({"status": "error", "message": "Çözünürlük değerleri çift sayı (even) olmalıdır"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Geçersiz çözünürlük formatı"}), 400
 
     updates = {
         "SENSOR": sensor,
         "FPS": fps_val,
-        "WIDTH": width_val,
-        "HEIGHT": height_val,
+        "WIDTH": str(w_int),
+        "HEIGHT": str(h_int),
     }
 
     env = save_default_env(updates)
+
+    # Sync to config.json as well
+    cfg = load_config()
+    cfg["sensor"] = sensor
+    cfg["fps"] = int(fps_val)
+    cfg["width"] = w_int
+    cfg["height"] = h_int
+    save_config(cfg)
 
     # UVC servisi çalışıyorsa yeniden başlat
     rc, out, _ = run_cmd(["systemctl", "is-active", "uvc-gadget"])

@@ -439,7 +439,7 @@ class Pi_Zero_UVC_Patch(Plugin):
             self.menu.append(self.status_text)
 
             def get_sizes():
-                sizes = [(640, 480), (1280, 720)]
+                sizes = [(320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)]
                 if hasattr(self.g_pool, 'capture') and self.g_pool.capture and hasattr(self.g_pool.capture, 'uvc_capture') and self.g_pool.capture.uvc_capture:
                     try:
                         sizes = [tuple(s) for s in self.g_pool.capture.uvc_capture.frame_sizes]
