@@ -39,7 +39,7 @@ public:
 	void SetOutputReadyCallback(OutputReadyCallback callback) { output_ready_callback_ = callback; }
 
 private:
-	static const int NUM_ENC_THREADS = 4;
+	static const int NUM_ENC_THREADS = 2;
 
 	void encodeThread(int num);
 

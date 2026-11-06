@@ -61,6 +61,8 @@ void MjpegEncoder::encodeJPEG(struct jpeg_compress_struct &cinfo, EncodeItem &it
 	jpeg_set_defaults(&cinfo);
 	cinfo.raw_data_in = TRUE;
 	jpeg_set_quality(&cinfo, 50, TRUE);
+	cinfo.dct_method = JDCT_IFAST;
+	cinfo.do_fancy_downsampling = FALSE;
 
 	jpeg_mem_len_t jpeg_mem_len = buffer_len;
 	jpeg_mem_dest(&cinfo, &encoded_buffer, &jpeg_mem_len);

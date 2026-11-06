@@ -12,6 +12,7 @@ import os
 import subprocess
 import socket
 import time
+import threading
 from pathlib import Path
 
 from flask import Flask, render_template, jsonify, request
@@ -528,6 +529,16 @@ def api_set_config():
     })
 
 
+def restart_uvc_service_async():
+    """UVC servisini HTTP isteğini bloklamadan arka planda güvenle yeniden başlatır."""
+    def _worker():
+        time.sleep(0.3)
+        run_cmd(["systemctl", "restart", "uvc-gadget"], timeout=30)
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+
 # ---- API: Rol Seçimi (Pupil Capture Eye0/Eye1/World/Generic) ----
 
 @app.route("/api/role", methods=["POST"])
@@ -548,21 +559,14 @@ def api_set_role():
 
     env = save_default_env({"ROLE": role})
 
-    # UVC servisi çalışıyorsa yeniden başlat
-    rc, out, _ = run_cmd(["systemctl", "is-active", "uvc-gadget"])
-    restart_msg = ""
-    if out == "active":
-        rc, _, err = run_cmd(["systemctl", "restart", "uvc-gadget"], timeout=15)
-        if rc == 0:
-            restart_msg = "UVC servisi yeniden başlatıldı"
-        else:
-            restart_msg = f"Servis yeniden başlatılamadı: {err}"
+    # UVC servisini arka planda güvenle yeniden başlat (HTTP bağlantısını bekletme)
+    restart_uvc_service_async()
 
     return jsonify({
         "status": "ok",
         "role": role,
         "role_title": ROLE_INFO[role]["title"],
-        "restart": restart_msg,
+        "restart": "UVC servisi güncelleniyor (kısa süre içinde aktif olacak)",
         "env": env,
     })
 
@@ -620,6 +624,12 @@ def api_set_sensor():
         "HEIGHT": str(h_int),
     }
 
+    # İsteğe bağlı olarak role de gönderilmişse tek seferde kaydet
+    if "role" in data:
+        r = str(data["role"]).strip().lower()
+        if r in ROLE_INFO:
+            updates["ROLE"] = r
+
     env = save_default_env(updates)
 
     # Sync to config.json as well
@@ -628,26 +638,21 @@ def api_set_sensor():
     cfg["fps"] = int(fps_val)
     cfg["width"] = w_int
     cfg["height"] = h_int
+    if "role" in data and str(data["role"]).strip().lower() in ROLE_INFO:
+        cfg["role"] = str(data["role"]).strip().lower()
     save_config(cfg)
 
-    # UVC servisi çalışıyorsa yeniden başlat
-    rc, out, _ = run_cmd(["systemctl", "is-active", "uvc-gadget"])
-    restart_msg = ""
-    if out == "active":
-        rc, _, err = run_cmd(["systemctl", "restart", "uvc-gadget"], timeout=15)
-        if rc == 0:
-            restart_msg = "UVC servisi yeniden başlatıldı"
-        else:
-            restart_msg = f"Servis yeniden başlatılamadı: {err}"
+    # UVC servisini arka planda güvenle yeniden başlat (HTTP bağlantısını bekletme)
+    restart_uvc_service_async()
 
     return jsonify({
         "status": "ok",
         "sensor": sensor,
-        "sensor_name": SENSOR_INFO[sensor]["name"],
-        "fps": env.get("FPS", "90"),
+        "fps": fps_val,
         "width": env.get("WIDTH", "640"),
         "height": env.get("HEIGHT", "480"),
-        "restart": restart_msg,
+        "resolution": f"{w_int}x{h_int} @ {fps_val}fps",
+        "restart": "UVC servisi güncelleniyor (kısa süre içinde aktif olacak)",
         "env": env,
     })
 

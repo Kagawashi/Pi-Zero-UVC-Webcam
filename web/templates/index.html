@@ -895,26 +895,8 @@
         }
 
         async function applyRole() {
-            const btn = document.getElementById('btnSaveRole');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
-
-            const role = document.getElementById('cameraRole').value;
-            const result = await apiCall('/api/role', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role: role }),
-            });
-
-            btn.disabled = false;
-            btn.innerHTML = '💾 Rolü Kaydet ve Uygula';
-
-            if (result && result.status === 'ok') {
-                showToast(`✓ Rol '${role}' olarak ayarlandı${result.restart ? ' — ' + result.restart : ''}`, 'success');
-                setTimeout(refreshStatus, 1500);
-            } else {
-                showToast(`✗ Rol güncelleme başarısız: ${result?.message || 'hata'}`, 'error');
-            }
+            // Kullanıcı soldaki butona bassa dahi hem Rol hem de Çözünürlük/Sensör ayarlarını birlikte kaydet
+            return applySensor();
         }
 
         function onResolutionChange(val) {
@@ -971,18 +953,29 @@
                 height = parseInt(resParts[1], 10);
             }
 
+            const role = document.getElementById('cameraRole').value;
+            const btnRole = document.getElementById('btnSaveRole');
+            if (btnRole) {
+                btnRole.disabled = true;
+                btnRole.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+            }
+
             const result = await apiCall('/api/sensor', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sensor: sensor, fps: fps, width: width, height: height }),
+                body: JSON.stringify({ sensor: sensor, fps: fps, width: width, height: height, role: role }),
             });
 
             btn.disabled = false;
             btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+            if (btnRole) {
+                btnRole.disabled = false;
+                btnRole.innerHTML = '💾 Rolü Kaydet ve Uygula';
+            }
 
             if (result && result.status === 'ok') {
-                showToast(`✓ Sensör '${sensor}' (${width}x${height} @ ${fps}fps) ayarlandı${result.restart ? ' — ' + result.restart : ''}`, 'success');
-                setTimeout(refreshStatus, 1500);
+                showToast(`✓ Kaydedildi: ${width}x${height} @ ${fps}fps (${role}). Pupil Capture içinden de aynı FPS'i seçin!`, 'success');
+                setTimeout(refreshStatus, 2000);
             } else {
                 showToast(`✗ Sensör güncelleme başarısız: ${result?.message || 'hata'}`, 'error');
             }

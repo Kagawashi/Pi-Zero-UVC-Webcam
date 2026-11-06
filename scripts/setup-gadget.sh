@@ -403,6 +403,12 @@ start_gadget() {
 stop_gadget() {
     echo "[*] Tearing down UVC Gadget ($GADGET)..."
 
+    # Önce video akışını sonlandır ki UVC video endpoint'leri boşalsın
+    pkill -TERM uvc-gadget 2>/dev/null || true
+    sleep 0.3
+    pkill -KILL uvc-gadget 2>/dev/null || true
+    sleep 0.2
+
     if [ ! -d "$GADGET" ]; then
         echo "[i] Gadget does not exist: $GADGET"
         return 0
