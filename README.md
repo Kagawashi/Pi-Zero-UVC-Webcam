@@ -67,7 +67,7 @@ graph LR
 ### Step 1: Prepare SD Card
 Flash **Raspberry Pi OS Lite** using [Raspberry Pi Imager](https://www.raspberrypi.com/software/).  
 In OS Customization settings (`Ctrl + Shift + X`):
-- Set Hostname: `makinalasmak` (or your preferred name)
+- Set Hostname: `pizero` (or your preferred name, e.g. `makinalasmak`)
 - Set Username & Password: e.g. `pi` / `raspberry`
 - Enable Wi-Fi & SSH
 
@@ -76,13 +76,14 @@ Once booted and connected to your network:
 
 ```bash
 # 1. Connect via SSH
-ssh pi@makinalasmak.local
+ssh pi@pizero.local
+# (or ssh pi@<hostname>.local)
 
 # 2. Clone the repository
-git clone https://github.com/muratcankoylan/pi-zero-uvc-cam.git
+git clone https://github.com/Kagawashi/Pi-Zero-UVC-Webcam.git
 
 # 3. Run the automated installer
-cd pi-zero-uvc-cam
+cd Pi-Zero-UVC-Webcam
 sudo bash install.sh
 ```
 

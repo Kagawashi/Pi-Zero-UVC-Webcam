@@ -45,8 +45,8 @@ ssh pi@pizero.local
 # (veya IP adresi ile: ssh pi@192.168.1.XX / ssh pi@10.23.11.XX)
 
 # 2. Proje deposunu çekin ve kurulumu başlatın:
-git clone https://github.com/muratcankoylan/pi-zero-uvc-cam.git
-cd pi-zero-uvc-cam
+git clone https://github.com/Kagawashi/Pi-Zero-UVC-Webcam.git
+cd Pi-Zero-UVC-Webcam
 sudo bash install.sh
 ```
 

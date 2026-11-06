@@ -4,11 +4,11 @@
 # =============================================================================
 # Kullanım Yolları:
 #   1. Git ile Klonlayıp Çalıştırma (Önerilen):
-#      git clone https://github.com/muratcankoylan/pi-zero-uvc-cam.git
-#      cd pi-zero-uvc-cam && sudo bash install.sh
+#      git clone https://github.com/Kagawashi/Pi-Zero-UVC-Webcam.git
+#      cd Pi-Zero-UVC-Webcam && sudo bash install.sh
 #
 #   2. Tek Satırda Online Kurulum:
-#      curl -fsSL https://raw.githubusercontent.com/muratcankoylan/pi-zero-uvc-cam/main/install.sh | sudo bash
+#      curl -fsSL https://raw.githubusercontent.com/Kagawashi/Pi-Zero-UVC-Webcam/main/install.sh | sudo bash
 # =============================================================================
 
 set -e
@@ -37,12 +37,12 @@ echo ""
 
 # Script çalışma dizini tespiti
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_URL="${REPO_URL:-https://github.com/muratcankoylan/pi-zero-uvc-cam.git}"
+REPO_URL="${REPO_URL:-https://github.com/Kagawashi/Pi-Zero-UVC-Webcam.git}"
 
 # Eğer curl borusuyla tek başına çalıştırılmışsa veya yerel alt klasörler eksikse repo klonla
 if [ ! -f "$SCRIPT_DIR/scripts/setup-gadget.sh" ]; then
     info "Proje kaynak dosyaları yerel dizinde bulunamadı. GitHub üzerinden indiriliyor..."
-    TARGET_DIR="/home/pi/pi-zero-uvc-cam"
+    TARGET_DIR="/home/pi/Pi-Zero-UVC-Webcam"
     if [ ! -d "$TARGET_DIR" ]; then
         which git >/dev/null 2>&1 || { apt-get update -qq && apt-get install -y -qq git; }
         git clone "$REPO_URL" "$TARGET_DIR" || error "Depo indirilemedi: $REPO_URL"
