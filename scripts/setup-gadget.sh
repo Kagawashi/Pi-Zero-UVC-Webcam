@@ -66,8 +66,16 @@ done
 if [ -z "$ROLE" ]; then
     ROLE="${ENV_ROLE:-${PICAM_ROLE:-}}"
 fi
-if [ -z "$ROLE" ] && [ -f "/etc/default/picam-uvc" ]; then
-    ROLE=$(grep -E '^[[:space:]]*ROLE=' /etc/default/picam-uvc 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d ' "\r\n')
+if [ -f "/etc/default/picam-uvc" ]; then
+    if [ -z "$ROLE" ]; then
+        ROLE=$(grep -E '^[[:space:]]*ROLE=' /etc/default/picam-uvc 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d ' "\r\n')
+    fi
+    if [ -z "${WIDTH:-}" ]; then
+        WIDTH=$(grep -E '^[[:space:]]*WIDTH=' /etc/default/picam-uvc 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d ' "\r\n')
+    fi
+    if [ -z "${HEIGHT:-}" ]; then
+        HEIGHT=$(grep -E '^[[:space:]]*HEIGHT=' /etc/default/picam-uvc 2>/dev/null | tail -n1 | cut -d'=' -f2 | tr -d ' "\r\n')
+    fi
 fi
 if [ -z "$ROLE" ]; then
     ROLE="eye0"
@@ -151,11 +159,22 @@ start_gadget() {
     # Gerçek sistemde gadget zaten aynı rol ve tam FPS listesiyle UDC'ye bağlıysa
     # UDC'yi söküp tekrar kurma (canlı UVC akışı varken UDC unbind dwc2'yi kilitler).
     if [ "$CONFIGFS_ROOT" = "/sys/kernel/config" ] && [ -f "$GADGET/UDC" ]; then
-        local cur_udc cur_prod ival_lines
+        local cur_udc cur_prod ival_lines custom_ok=1
         cur_udc=$(cat "$GADGET/UDC" 2>/dev/null | tr -d '[:space:]')
         cur_prod=$(cat "$GADGET/strings/0x409/product" 2>/dev/null | tr -d '\r\n')
         ival_lines=$(wc -l < "$FUNC/streaming/mjpeg/m/240p/dwFrameInterval" 2>/dev/null || echo 0)
-        if [ -n "$cur_udc" ] && [ "$cur_prod" = "$PRODUCT" ] && [ "$ival_lines" -ge 3 ]; then
+        case "${WIDTH:-}x${HEIGHT:-}" in
+            640x480|1280x720|320x240|400x400|800x600|"x"|"") ;;
+            *)
+                local cw ch
+                cw=$(cat "$FUNC/streaming/mjpeg/m/custom/wWidth" 2>/dev/null | tr -d '[:space:]')
+                ch=$(cat "$FUNC/streaming/mjpeg/m/custom/wHeight" 2>/dev/null | tr -d '[:space:]')
+                if [ "$cw" != "${WIDTH:-}" ] || [ "$ch" != "${HEIGHT:-}" ]; then
+                    custom_ok=0
+                fi
+                ;;
+        esac
+        if [ -n "$cur_udc" ] && [ "$cur_prod" = "$PRODUCT" ] && [ "$ival_lines" -ge 3 ] && [ "$custom_ok" -eq 1 ]; then
             echo "[✓] UVC Gadget zaten aktif ve güncel ($cur_prod on $cur_udc) — UDC yeniden bağlanmadı"
             return 0
         fi

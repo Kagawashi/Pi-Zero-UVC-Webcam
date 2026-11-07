@@ -175,6 +175,12 @@ find_camera_device() {
         return 0
     fi
 
+    # 0. Fast sysfs check for unicam (libcamera) without spawning 30 v4l2-ctl processes
+    if grep -qi "unicam" /sys/class/video4linux/video*/name 2>/dev/null; then
+        echo "libcamera"
+        return 0
+    fi
+
     # 1. Prioritize /dev/video0 if running bcm2835-v4l2 (VideoCore IV hardware MJPEG)
     # Delivers hardware MJPEG at <10% CPU load on single-core ARM11 @ 90fps
     if [ -e "/dev/video0" ]; then
@@ -337,7 +343,7 @@ EOF
             SRC_TUNING="/usr/share/libcamera/ipa/rpi/vc4/${SENSOR}_mono.json"
         fi
         FAST_TUNING="/etc/picam/${SENSOR}_fast.json"
-        if [ -f "$SRC_TUNING" ] && command -v python3 >/dev/null 2>&1; then
+        if [ ! -f "$FAST_TUNING" ] && [ -f "$SRC_TUNING" ] && command -v python3 >/dev/null 2>&1; then
             python3 - "$SRC_TUNING" "$FAST_TUNING" << 'PYEOF'
 import json, sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -369,11 +375,21 @@ data["algorithms"] = algos
 with open(dst, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
-            if [ -f "$FAST_TUNING" ]; then
-                export LIBCAMERA_RPI_TUNING_FILE="$FAST_TUNING"
-                log "[✓] Enabled high-FPS libcamera tuning: $FAST_TUNING"
-            fi
         fi
+        if [ -f "$FAST_TUNING" ]; then
+            export LIBCAMERA_RPI_TUNING_FILE="$FAST_TUNING"
+            log "[✓] Enabled high-FPS libcamera tuning: $FAST_TUNING"
+        fi
+
+        # Wait up to 10s on early boot for both Unicam and ISP media devices + CSI subdev
+        CAM_WAIT=20
+        while [ $CAM_WAIT -gt 0 ]; do
+            if [ -e /dev/v4l-subdev0 ] && [ -e /dev/media0 ] && [ -e /dev/media1 ]; then
+                break
+            fi
+            sleep 0.5
+            CAM_WAIT=$((CAM_WAIT - 1))
+        done
 
         log "[*] Launching uvc-gadget (libcamera backend)..."
         exec uvc-gadget -c 0 uvc.usb0

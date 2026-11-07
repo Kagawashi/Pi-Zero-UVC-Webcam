@@ -245,6 +245,52 @@ def run_cmd(cmd: list[str], timeout: int = 10) -> tuple[int, str, str]:
         return -1, "", f"command not found: {cmd[0]}"
 
 
+_prev_cpu_stat: tuple[int, int] | None = None
+
+
+def _read_proc_stat() -> tuple[int, int] | None:
+    """Read (idle, total) jiffies from /proc/stat."""
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as f:
+            first = f.readline()
+        parts = [int(x) for x in first.split()[1:]]
+        if len(parts) >= 4:
+            idle = parts[3] + (parts[4] if len(parts) > 4 else 0)
+            total = sum(parts)
+            return idle, total
+    except Exception:
+        pass
+    return None
+
+
+def get_cpu_usage_percent() -> str:
+    """Calculate CPU usage as a percentage (%) from /proc/stat."""
+    global _prev_cpu_stat
+    cur = _read_proc_stat()
+    if cur is None:
+        return "N/A"
+    if _prev_cpu_stat is None:
+        time.sleep(0.08)
+        cur2 = _read_proc_stat()
+        if cur2 is None:
+            _prev_cpu_stat = cur
+            return "%0.0"
+        prev_idle, prev_total = cur
+        cur_idle, cur_total = cur2
+        _prev_cpu_stat = cur2
+    else:
+        prev_idle, prev_total = _prev_cpu_stat
+        cur_idle, cur_total = cur
+        _prev_cpu_stat = cur
+
+    diff_total = cur_total - prev_total
+    diff_idle = cur_idle - prev_idle
+    if diff_total <= 0:
+        return "%0.0"
+    pct = max(0.0, min(100.0, (1.0 - (diff_idle / diff_total)) * 100.0))
+    return f"%{pct:.1f}"
+
+
 def get_system_status() -> dict:
     """Sistem durumu bilgilerini topla."""
     status = {}
@@ -262,15 +308,8 @@ def get_system_status() -> dict:
         except (IOError, ValueError):
             status["cpu_temp"] = "N/A"
 
-    # CPU yükü
-    try:
-        if hasattr(os, "getloadavg"):
-            load = os.getloadavg()
-            status["cpu_load"] = f"{load[0]:.2f} / {load[1]:.2f} / {load[2]:.2f}"
-        else:
-            status["cpu_load"] = "N/A"
-    except (OSError, AttributeError):
-        status["cpu_load"] = "N/A"
+    # CPU kullanımı (%)
+    status["cpu_load"] = get_cpu_usage_percent()
 
     # Bellek kullanımı
     rc, out, _ = run_cmd(["free", "-m"])
@@ -554,6 +593,14 @@ def schedule_safe_reboot():
     """
     def _worker():
         time.sleep(1.5)  # HTTP yanıtı tarayıcıya ulaşsın
+        run_cmd(["systemctl", "stop", "uvc-gadget"], timeout=5)
+        try:
+            udc_path = Path("/sys/kernel/config/usb_gadget/pi_uvc/UDC")
+            if udc_path.exists():
+                udc_path.write_text("\n", encoding="utf-8")
+                time.sleep(0.5)
+        except Exception:
+            pass
         run_cmd(["systemctl", "reboot"], timeout=10)
 
     threading.Thread(target=_worker, daemon=True).start()
