@@ -150,15 +150,15 @@ modprobe dwc2 2>/dev/null || true
 modprobe usb_f_rndis 2>/dev/null || true
 
 # =============================================================================
-# 3. uvc-gadget Derleme ve Kurulumu
+# 3. uvc-gadget Derleme ve Kurulumu (VideoCore IV GPU Donanım JPEG + DMABUF)
 # =============================================================================
-info "3/7 - uvc-gadget sürücüsü derleniyor..."
+info "3/7 - uvc-gadget (VideoCore IV GPU V4L2 M2M + Zero-Copy DMABUF) derleniyor..."
 
 UVC_BUILD_DIR="/tmp/uvc-gadget-build"
 rm -rf "$UVC_BUILD_DIR"
 
 if [ -d "$SCRIPT_DIR/uvc-gadget" ]; then
-    info "Paket içindeki optimize uvc-gadget kaynak kodları kullanılıyor..."
+    info "Paket içindeki GPU donanım hızlandırmalı uvc-gadget kaynak kodları kullanılıyor..."
     cp -r "$SCRIPT_DIR/uvc-gadget" "$UVC_BUILD_DIR"
 else
     info "uvc-gadget deposu indiriliyor..."
@@ -169,10 +169,11 @@ fi
 
 cd "$UVC_BUILD_DIR"
 rm -rf build
-meson setup build || { error "meson setup build başarısız oldu!"; }
+meson setup build --buildtype=release || { error "meson setup build başarısız oldu!"; }
 ninja -C build || { error "ninja -C build derleme başarısız oldu!"; }
 ninja -C build install || { error "ninja -C build install kurulumu başarısız oldu!"; }
 ldconfig
+sync
 
 cd "$SCRIPT_DIR"
 rm -rf "$UVC_BUILD_DIR"
@@ -288,11 +289,11 @@ echo -e "${GREEN}  ✓ KURULUM BAŞARIYLA TAMAMLANDI!                      ${NC}
 echo -e "${GREEN}========================================================${NC}"
 echo ""
 echo "  Kurulan Bileşenler:"
-echo "  ├── UVC Gadget Çekirdeği : $(which uvc-gadget)"
+echo "  ├── UVC Gadget Çekirdeği : $(which uvc-gadget) (VideoCore IV GPU DMABUF Release)"
 echo "  ├── ConfigFS Betiği      : /usr/local/bin/setup-gadget.sh"
-echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh"
-echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080)"
-echo "  ├── Kamera Ayarları      : /etc/picam/config.json"
+echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh (Otomatik Hızlı IPA & Unicam Tuning)"
+echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080, Sıfır-Subprocess sysfs İzleme)"
+echo "  ├── Kamera Ayarları      : /etc/picam/config.json, rpi_pipeline.yaml, <sensor>_fast.json"
 echo "  └── Otomatik Servisler   : uvc-gadget.service, picam-web.service"
 echo ""
 echo "  Kullanım Adımları:"
