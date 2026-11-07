@@ -7,6 +7,7 @@
  * Contact: Daniel Scally <dan.scally@ideasonboard.com>
  */
 
+#include <atomic>
 #include <errno.h>
 #include <fcntl.h>
 #include <iostream>
@@ -58,8 +59,19 @@ struct libcamera_source {
 
 	struct video_buffer_set buffers;
 
+	struct ReadyEncodedBuffer {
+		unsigned int index;
+		void *mem;
+		size_t bytesused;
+		int64_t timestamp;
+	};
+	std::queue<unsigned int> free_sink_bufs_;
+	std::queue<ReadyEncodedBuffer> ready_encoded_;
+	std::atomic<bool> stopping_{false};
+
 	void mapBuffer(const std::unique_ptr<FrameBuffer> &buffer);
 	void requestComplete(Request *request);
+	void inputDone(unsigned int cookie);
 	void outputReady(void *mem, size_t bytesused, int64_t timestamp, unsigned int cookie);
 };
 
@@ -84,8 +96,40 @@ void libcamera_source::mapBuffer(const std::unique_ptr<FrameBuffer> &buffer)
 
 void libcamera_source::requestComplete(Request *request)
 {
-	if (request->status() == Request::RequestCancelled)
+	if (request->status() == Request::RequestCancelled || stopping_.load())
 		return;
+
+	if (src.type == VIDEO_SOURCE_ENCODED && encoder) {
+		unsigned int sink_idx = 0;
+		{
+			std::lock_guard<std::mutex> lock(requests_mutex);
+			if (free_sink_bufs_.empty() || encoder->QueueSize() >= 2) {
+				request->reuse(Request::ReuseBuffers);
+				camera->queueRequest(request);
+				return;
+			}
+			sink_idx = free_sink_bufs_.front();
+			free_sink_bufs_.pop();
+		}
+
+		Stream *stream = config->at(0).stream();
+		FrameBuffer *framebuf = request->buffers().begin()->second;
+		int64_t timestamp_ns = framebuf->metadata().timestamp;
+		StreamInfo info = encoder->getStreamInfo(stream);
+		auto span = mapped_buffers_.find(framebuf);
+		void *mem = (span != mapped_buffers_.end()) ? span->second.data() : nullptr;
+		void *dest = buffers.buffers[sink_idx].mem;
+		unsigned int size = (span != mapped_buffers_.end())
+					    ? span->second.size()
+					    : framebuf->planes()[0].length;
+		int dmabuf_fd = framebuf->planes()[0].fd.get();
+		unsigned int packed_cookie =
+			(static_cast<unsigned int>(request->cookie()) << 16) | (sink_idx & 0xFFFFu);
+
+		encoder->EncodeBuffer(mem, dest, size, info, timestamp_ns / 1000,
+				      packed_cookie, dmabuf_fd);
+		return;
+	}
 
 	{
 		std::lock_guard<std::mutex> lock(requests_mutex);
@@ -101,23 +145,35 @@ void libcamera_source::requestComplete(Request *request)
 	write(pfds[1], "x", 1);
 }
 
+void libcamera_source::inputDone(unsigned int cookie)
+{
+	if (stopping_.load())
+		return;
+
+	unsigned int req_idx = cookie >> 16;
+	if (req_idx < requests.size()) {
+		Request *r = requests[req_idx].get();
+		r->reuse(Request::ReuseBuffers);
+		camera->queueRequest(r);
+	}
+}
+
 void libcamera_source::outputReady(void *mem, size_t bytesused, int64_t timestamp, unsigned int cookie)
 {
-	struct video_buffer buffer;
+	if (stopping_.load())
+		return;
 
-	buffer.index = cookie;
-	buffer.mem = mem;
-	buffer.bytesused = bytesused;
-	buffer.timestamp.tv_sec = timestamp / 1000000;
-	buffer.timestamp.tv_usec = timestamp % 1000000;
-
-	src.handler(src.handler_data, &src, &buffer);
+	unsigned int sink_idx = cookie & 0xFFFFu;
+	{
+		std::lock_guard<std::mutex> lock(requests_mutex);
+		ready_encoded_.push({ sink_idx, mem, bytesused, timestamp });
+	}
+	write(pfds[1], "x", 1);
 }
 
 static void libcamera_source_video_process(void *d)
 {
 	struct libcamera_source *src = (struct libcamera_source *)d;
-	Stream *stream = src->config->at(0).stream();
 	char drain[64];
 
 	/*
@@ -125,6 +181,29 @@ static void libcamera_source_video_process(void *d)
 	 * all completed requests in one wakeup to avoid extra select() roundtrips.
 	 */
 	while (read(src->pfds[0], drain, sizeof(drain)) > 0) {
+	}
+
+	if (src->src.type == VIDEO_SOURCE_ENCODED) {
+		while (true) {
+			libcamera_source::ReadyEncodedBuffer item;
+			{
+				std::lock_guard<std::mutex> lock(src->requests_mutex);
+				if (src->ready_encoded_.empty())
+					return;
+				item = src->ready_encoded_.front();
+				src->ready_encoded_.pop();
+			}
+
+			struct video_buffer buffer = {};
+			buffer.index = item.index;
+			buffer.mem = item.mem;
+			buffer.bytesused = item.bytesused;
+			buffer.timestamp.tv_sec = item.timestamp / 1000000;
+			buffer.timestamp.tv_usec = item.timestamp % 1000000;
+			buffer.error = false;
+
+			src->src.handler(src->src.handler_data, &src->src, &buffer);
+		}
 	}
 
 	while (true) {
@@ -140,22 +219,6 @@ static void libcamera_source_video_process(void *d)
 
 		/* We have only a single buffer per request, so just pick the first */
 		FrameBuffer *framebuf = request->buffers().begin()->second;
-
-		if (src->src.type == VIDEO_SOURCE_ENCODED && src->encoder) {
-			int64_t timestamp_ns = framebuf->metadata().timestamp;
-			StreamInfo info = src->encoder->getStreamInfo(stream);
-			auto span = src->mapped_buffers_.find(framebuf);
-			void *mem = (span != src->mapped_buffers_.end()) ? span->second.data() : nullptr;
-			void *dest = src->buffers.buffers[request->cookie()].mem;
-			unsigned int size = (span != src->mapped_buffers_.end())
-						    ? span->second.size()
-						    : framebuf->planes()[0].length;
-			int dmabuf_fd = framebuf->planes()[0].fd.get();
-
-			src->encoder->EncodeBuffer(mem, dest, size, info, timestamp_ns / 1000,
-						   request->cookie(), dmabuf_fd);
-			continue;
-		}
 
 		int64_t timestamp_us = framebuf->metadata().timestamp / 1000;
 		struct video_buffer buffer;
@@ -222,10 +285,12 @@ static int libcamera_source_set_format(struct video_source *s,
 		std::cout << "MJPEG format not natively supported; encoding YUV420 via VideoCore IV GPU" << std::endl;
 
 		src->encoder = new MjpegEncoder();
+		src->encoder->SetInputDoneCallback(std::bind(&libcamera_source::inputDone, src, _1));
 		src->encoder->SetOutputReadyCallback(std::bind(&libcamera_source::outputReady, src, _1, _2, _3, _4));
 
 		streamConfig.pixelFormat = PixelFormat(V4L2_PIX_FMT_YUV420);
 		streamConfig.stride = 0;
+		streamConfig.colorSpace = ColorSpace::Sycc;
 		src->src.type = VIDEO_SOURCE_ENCODED;
 
 		src->config->validate();
@@ -263,6 +328,27 @@ static int libcamera_source_set_frame_rate(struct video_source *s, unsigned int 
 
 	src->controls.set(controls::FrameDurationLimits,
 			  Span<const int64_t, 2>({ frame_time, frame_time }));
+
+	const char *ae_env = getenv("PICAM_AUTO_EXPOSURE");
+	const char *exp_env = getenv("PICAM_EXPOSURE_US");
+	bool auto_exp = true;
+	if (ae_env && (strcmp(ae_env, "false") == 0 || strcmp(ae_env, "0") == 0))
+		auto_exp = false;
+
+	if (!auto_exp) {
+		int32_t exp_us = exp_env ? std::atoi(exp_env) : 5000;
+		if (exp_us <= 0)
+			exp_us = 5000;
+		if (exp_us > frame_time - 200)
+			exp_us = static_cast<int32_t>(frame_time - 200);
+		src->controls.set(controls::AeEnable, false);
+		src->controls.set(controls::ExposureTime, exp_us);
+		src->controls.set(controls::AnalogueGain, 8.0f);
+		std::cout << "Manual exposure enabled in libcamera: ExposureTime="
+			  << exp_us << " us, AnalogueGain=8.0" << std::endl;
+	} else {
+		src->controls.set(controls::AeEnable, true);
+	}
 
 	return 0;
 }
@@ -388,9 +474,21 @@ static int libcamera_source_stream_on(struct video_source *s)
 	Stream *stream = src->config->at(0).stream();
 	int ret;
 
+	src->stopping_.store(false);
+	{
+		std::lock_guard<std::mutex> lock(src->requests_mutex);
+		while (!src->free_sink_bufs_.empty())
+			src->free_sink_bufs_.pop();
+		while (!src->ready_encoded_.empty())
+			src->ready_encoded_.pop();
+		for (unsigned int i = 0; i < src->buffers.nbufs; ++i)
+			src->free_sink_bufs_.push(i);
+	}
+
 #ifdef CONFIG_CAN_ENCODE
 	if (src->src.type == VIDEO_SOURCE_ENCODED && !src->encoder) {
 		src->encoder = new MjpegEncoder();
+		src->encoder->SetInputDoneCallback(std::bind(&libcamera_source::inputDone, src, _1));
 		src->encoder->SetOutputReadyCallback(std::bind(&libcamera_source::outputReady, src, _1, _2, _3, _4));
 	}
 #endif
@@ -445,6 +543,13 @@ static int libcamera_source_stream_off(struct video_source *s)
 {
 	struct libcamera_source *src = to_libcamera_source(s);
 
+	src->stopping_.store(true);
+
+	if (src->encoder) {
+		delete src->encoder;
+		src->encoder = nullptr;
+	}
+
 	src->camera->stop();
 	events_unwatch_fd(src->src.events, src->pfds[0], EVENT_READ);
 	src->requests.clear();
@@ -453,16 +558,15 @@ static int libcamera_source_stream_off(struct video_source *s)
 		std::lock_guard<std::mutex> lock(src->requests_mutex);
 		while (!src->completed_requests.empty())
 			src->completed_requests.pop();
+		while (!src->free_sink_bufs_.empty())
+			src->free_sink_bufs_.pop();
+		while (!src->ready_encoded_.empty())
+			src->ready_encoded_.pop();
 	}
 
 	/* Drain any remaining notification bytes from the pipe */
 	char drain_buf[64];
 	while (read(src->pfds[0], drain_buf, sizeof(drain_buf)) > 0) {
-	}
-
-	if (src->encoder) {
-		delete src->encoder;
-		src->encoder = nullptr;
 	}
 
 	return 0;
@@ -472,6 +576,12 @@ static int libcamera_source_queue_buffer(struct video_source *s,
 					 struct video_buffer *buf)
 {
 	struct libcamera_source *src = to_libcamera_source(s);
+
+	if (src->src.type == VIDEO_SOURCE_ENCODED) {
+		std::lock_guard<std::mutex> lock(src->requests_mutex);
+		src->free_sink_bufs_.push(buf->index);
+		return 0;
+	}
 
 	for (std::unique_ptr<Request> &r : src->requests) {
 		if (r->cookie() == buf->index) {

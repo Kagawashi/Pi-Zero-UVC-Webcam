@@ -313,7 +313,7 @@ bool MjpegEncoder::encodeHW(EncodeItem &item, uint8_t *&encoded_buffer, size_t &
 
 	if (hw_dmabuf_) {
 		out_buf.memory = V4L2_MEMORY_DMABUF;
-		out_buf.index = item.cookie % hw_num_out_bufs_;
+		out_buf.index = (item.cookie >> 16) % hw_num_out_bufs_;
 		out_plane.m.fd = item.dmabuf_fd;
 		out_plane.bytesused = hw_out_size_;
 		out_plane.length = hw_out_size_;
@@ -476,6 +476,10 @@ void MjpegEncoder::encodeThread(int num)
 
 		if (!encodeHW(encode_item, encoded_buffer, buffer_len)) {
 			encodeJPEG(cinfo, encode_item, encoded_buffer, buffer_len);
+		}
+
+		if (!abortEncode_ && input_done_callback_) {
+			input_done_callback_(encode_item.cookie);
 		}
 
 		frames++;

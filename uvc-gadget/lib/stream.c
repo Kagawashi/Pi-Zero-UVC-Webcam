@@ -43,8 +43,15 @@ static void uvc_stream_source_process(void *d,
 {
 	struct uvc_stream *stream = d;
 	struct v4l2_device *sink = uvc_v4l2_device(stream->uvc);
+	struct video_buffer done_buf;
 
+	while (v4l2_dequeue_buffer(sink, &done_buf) == 0) {
+		video_source_queue_buffer(stream->src, &done_buf);
+	}
 	v4l2_queue_buffer(sink, buffer);
+	while (v4l2_dequeue_buffer(sink, &done_buf) == 0) {
+		video_source_queue_buffer(stream->src, &done_buf);
+	}
 }
 
 static void uvc_stream_uvc_process(void *d)
@@ -52,13 +59,10 @@ static void uvc_stream_uvc_process(void *d)
 	struct uvc_stream *stream = d;
 	struct v4l2_device *sink = uvc_v4l2_device(stream->uvc);
 	struct video_buffer buf;
-	int ret;
 
-	ret = v4l2_dequeue_buffer(sink, &buf);
-	if (ret < 0)
-		return;
-
-	video_source_queue_buffer(stream->src, &buf);
+	while (v4l2_dequeue_buffer(sink, &buf) == 0) {
+		video_source_queue_buffer(stream->src, &buf);
+	}
 }
 
 static void uvc_stream_uvc_process_no_buf(void *d)

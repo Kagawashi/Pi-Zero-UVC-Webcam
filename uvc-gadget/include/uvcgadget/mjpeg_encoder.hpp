@@ -18,6 +18,7 @@
 
 struct jpeg_compress_struct;
 typedef std::function<void(void *, size_t, int64_t, unsigned int)> OutputReadyCallback;
+typedef std::function<void(unsigned int)> InputDoneCallback;
 
 struct StreamInfo
 {
@@ -40,6 +41,11 @@ public:
 			  unsigned int cookie, int dmabuf_fd = -1);
 	StreamInfo getStreamInfo(libcamera::Stream *stream);
 	void SetOutputReadyCallback(OutputReadyCallback callback) { output_ready_callback_ = callback; }
+	void SetInputDoneCallback(InputDoneCallback callback) { input_done_callback_ = callback; }
+	size_t QueueSize() {
+		std::lock_guard<std::mutex> lock(encode_mutex_);
+		return encode_queue_.size();
+	}
 
 private:
 	static const int NUM_ENC_THREADS = 1;
@@ -102,4 +108,5 @@ private:
 	std::condition_variable output_cond_var_;
 	std::thread output_thread_;
 	OutputReadyCallback output_ready_callback_;
+	InputDoneCallback input_done_callback_;
 };

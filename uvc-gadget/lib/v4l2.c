@@ -783,8 +783,9 @@ int v4l2_dequeue_buffer(struct v4l2_device *dev, struct video_buffer *buffer)
 
 	ret = ioctl(dev->fd, VIDIOC_DQBUF, &buf);
 	if (ret < 0) {
-		printf("%s: unable to dequeue buffer index %u/%u (%d)\n",
-		       dev->name, buf.index, dev->buffers.nbufs, errno);
+		if (errno != EAGAIN)
+			printf("%s: unable to dequeue buffer index %u/%u (%d)\n",
+			       dev->name, buf.index, dev->buffers.nbufs, errno);
 		return -errno;
 	}
 

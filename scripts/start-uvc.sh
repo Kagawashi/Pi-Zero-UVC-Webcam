@@ -325,6 +325,14 @@ main() {
 
     # Launch uvc-gadget with clean exec process handoff
     if [ "$CAM_SRC" = "libcamera" ]; then
+        if [ -w /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
+            echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || true
+        fi
+        AUTO_EXP_CFG=$(read_config "auto_exposure" "${AUTO_EXPOSURE:-true}")
+        EXP_VAL_CFG=$(read_config "exposure_value" "${EXPOSURE_TIME_ABSOLUTE:-5000}")
+        export PICAM_AUTO_EXPOSURE="$AUTO_EXP_CFG"
+        export PICAM_EXPOSURE_US="$EXP_VAL_CFG"
+
         mkdir -p /etc/picam
         cat > /etc/picam/rpi_pipeline.yaml << 'EOF'
 {
@@ -343,33 +351,33 @@ EOF
             SRC_TUNING="/usr/share/libcamera/ipa/rpi/vc4/${SENSOR}_mono.json"
         fi
         FAST_TUNING="/etc/picam/${SENSOR}_fast.json"
-        if [ ! -f "$FAST_TUNING" ] && [ -f "$SRC_TUNING" ] && command -v python3 >/dev/null 2>&1; then
+        if [ -f "$SRC_TUNING" ] && command -v python3 >/dev/null 2>&1; then
             python3 - "$SRC_TUNING" "$FAST_TUNING" << 'PYEOF'
 import json, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, "r") as f:
     data = json.load(f)
-drop = {"rpi.dpc", "rpi.geq", "rpi.sdn", "rpi.hdr", "rpi.sharpen"}
+keep = {"rpi.black_level", "rpi.lux", "rpi.agc", "rpi.ccm", "rpi.contrast"}
 algos = []
 for item in data.get("algorithms", []):
     name = next(iter(item.keys()), "")
-    if name in drop:
+    if name not in keep:
         continue
     cfg = item[name]
-    if name == "rpi.alsc" and isinstance(cfg, dict):
-        cfg["n_iter"] = 0
-    elif name == "rpi.awb" and isinstance(cfg, dict):
-        cfg["bayes"] = 0
-    elif name == "rpi.contrast" and isinstance(cfg, dict):
-        cfg["ce_enable"] = 0
-    elif name == "rpi.agc" and isinstance(cfg, dict):
+    if name == "rpi.agc" and isinstance(cfg, dict):
         for mode in cfg.get("exposure_modes", {}).values():
             if isinstance(mode, dict) and "shutter" in mode:
-                mode["shutter"] = [min(int(x), 16666) for x in mode["shutter"]]
+                n = len(mode["shutter"])
+                mode["shutter"] = [100, 2500, 5000, 7500, 9500][:n]
+                if "gain" in mode and len(mode["gain"]) == n:
+                    mode["gain"] = [1.0, 4.0, 8.0, 16.0, 32.0][:n]
         for chan in cfg.get("channels", []):
             for mode in chan.get("exposure_modes", {}).values():
                 if isinstance(mode, dict) and "shutter" in mode:
-                    mode["shutter"] = [min(int(x), 16666) for x in mode["shutter"]]
+                    n = len(mode["shutter"])
+                    mode["shutter"] = [100, 2500, 5000, 7500, 9500][:n]
+                    if "gain" in mode and len(mode["gain"]) == n:
+                        mode["gain"] = [1.0, 4.0, 8.0, 16.0, 32.0][:n]
     algos.append({name: cfg})
 data["algorithms"] = algos
 with open(dst, "w") as f:
