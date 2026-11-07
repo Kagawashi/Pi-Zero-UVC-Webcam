@@ -303,7 +303,7 @@ EOF
     CFG_H="${HEIGHT:-}"
     DEFAULT_FRAME_INDEX=1
     case "${CFG_W}x${CFG_H}" in
-        640x480|"") DEFAULT_FRAME_INDEX=1 ;;
+        640x480|"x"|"") DEFAULT_FRAME_INDEX=1 ;;
         1280x720)   DEFAULT_FRAME_INDEX=2 ;;
         320x240)    DEFAULT_FRAME_INDEX=3 ;;
         400x400)    DEFAULT_FRAME_INDEX=4 ;;
@@ -341,10 +341,15 @@ EOF
     ln -sf "$FUNC" "$CONFIG/uvc.usb0"
 
     # =========================================================================
-    # 6b. USB Ethernet (RNDIS) Composite Gadget Support
-    # Enables direct SSH & web panel access over the USB cable without Wi-Fi
+    # 6b. USB Ethernet (RNDIS) Composite Gadget Support (Optional)
+    # Disabled by default (ENABLE_RNDIS=0) because:
+    # 1. BCM2835 dwc2 lacks periodic TX FIFOs for simultaneous High-Bandwidth
+    #    Isochronous UVC + RNDIS, causing Windows usbrndis6.sys PnP Error state.
+    # 2. Pupil Capture's libwdi driver installer (PupilDrvInst.exe) binds libusbK
+    #    to the root USB device and hangs on CMP_WaitNoPendingInstallEvents if a
+    #    faulted RNDIS child interface (MI_02) is present.
     # =========================================================================
-    ENABLE_RNDIS="${ENABLE_RNDIS:-1}"
+    ENABLE_RNDIS="${ENABLE_RNDIS:-0}"
     if [ "$ENABLE_RNDIS" = "1" ] || [ "$ENABLE_RNDIS" = "true" ]; then
         RNDIS_FUNC="$GADGET/functions/rndis.usb0"
         if [ ! -d "$RNDIS_FUNC" ]; then
@@ -365,6 +370,10 @@ EOF
         ln -sf "$CONFIG" "$GADGET/os_desc/c.1" 2>/dev/null || true
         ln -sf "$RNDIS_FUNC" "$CONFIG/rndis.usb0" 2>/dev/null || true
         echo "[✓] USB Ethernet (RNDIS) function linked to configuration"
+    else
+        echo 0 > "$GADGET/os_desc/use" 2>/dev/null || true
+        rm -f "$GADGET/os_desc/c.1" "$CONFIG/rndis.usb0" 2>/dev/null || true
+        rmdir "$GADGET/functions/rndis.usb0" 2>/dev/null || true
     fi
 
     # =========================================================================

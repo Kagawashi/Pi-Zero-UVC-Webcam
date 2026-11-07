@@ -201,18 +201,19 @@ Pupil Capture'ın Pi Zero ile çökmeden tam uyumlu çalışması için Windows 
 
 ---
 
-## 10. Canlı Kullanım
+## 10. Canlı Kullanım ve Rol Değiştirme (`eye0` / `eye1` / `world`)
 
 1. Pi Zero'yu **ortadaki USB portundan** (PWR değil) kaliteli bir veri kablosu ile bilgisayara bağlayın.
-2. Windows Aygıt Yöneticisi'nde:
-   * **libusbk devices** altında **`Pupil Cam1 ID0`**
-   * **Ağ bağdaştırıcıları** altında **`Remote NDIS Compatible Device`**
-   cihazlarının belirdiğini görün.
-3. Pupil Capture uygulamasını başlatın:
+2. Windows Aygıt Yöneticisi'nde **libusbk devices** altında seçili role göre aşağıdaki cihazlardan birinin belirdiğini görün:
+   * **`eye0` (Sağ Göz):** `Pupil Cam1 ID0` (`VID_05A3&PID_9230` / `1443:37424`)
+   * **`eye1` (Sol Göz):** `Pupil Cam1 ID1` (`VID_05A3&PID_9231` / `1443:37425`)
+   * **`world` (Dünya / Sahne):** `Pupil Cam1 ID2` (`VID_05A3&PID_9232` / `1443:37426`)
+   > **Not (İlk Kez Rol Değiştirirken Sürücü Kurulumu):** Windows her USB PID (`9230`, `9231`, `9232`) için `libusbK` sürücüsünü ayrı kaydeder. Web panelinden (`http://pizero.local:8080`) kamera rolünü ilk kez `world` veya `eye1` yaptığınızda, `powershell -ExecutionPolicy Bypass -File .\windows\install_plugin.ps1` komutunu çalıştırarak (veya Pupil Capture açılırken çıkan yönetici iznini onaylayarak) `PupilDrvInst.exe`'nin yeni rol için `libusbK` sürücüsünü tek seferlik kurmasını sağlayın. (`setup-gadget.sh` içinde RNDIS varsayılan olarak kapatıldığı (`ENABLE_RNDIS=0`) için sürücü kurulumu PnP çakışması olmadan saniyeler içinde tamamlanır.)
+3. Sürücü kurulduktan sonra Pupil Capture uygulamasını başlatın:
    ```powershell
    Start-Process "C:\Program Files (x86)\Pupil-Labs\Pupil v3.5.1\Pupil Capture v3.5.1\pupil_capture.exe" -ArgumentList "--skip-driver-installation"
    ```
-4. Eye 0 penceresinde menüyü açtığınızda **"Pi Zero Kamera Ayarları"** panelinden 90 FPS canlı yayının keyfini çıkarın!
+4. Kamera penceresinde (`Eye 0`, `Eye 1` veya `World`) menüyü açtığınızda **"Pi Zero Kamera Ayarları"** panelinden yüksek FPS canlı yayının keyfini çıkarın!
 
 ---
 

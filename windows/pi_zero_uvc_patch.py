@@ -216,6 +216,7 @@ if uvc_b and hasattr(uvc_b, 'UVC_Source'):
             apply_uvc_dll_hotpatch()
             install_safe_selector_patch()
             res = orig_configure(self, *args, **kwargs)
+            self.stripe_detector = None
             return res
         uvc_b.UVC_Source.configure_capture = patched_configure
 
@@ -254,9 +255,6 @@ if uvc_b and hasattr(uvc_b, 'UVC_Source'):
                     target = self.preferred_exposure_time.calculate_based_on_frame(frame)
                     if target is not None:
                         self.exposure_time = target
-
-                if self.stripe_detector and self.stripe_detector.require_restart(frame):
-                    self.frame_rate = self.frame_rate
 
             except (TimeoutError, uvc.StreamError) as e:
                 count = _failure_counts.get(key, 0) + 1
