@@ -443,6 +443,7 @@ void MjpegEncoder::encodeThread(int num)
 	struct jpeg_error_mgr jerr;
 	EncodeItem encode_item;
 	uint32_t frames = 0;
+	auto last_log = std::chrono::steady_clock::now();
 
 	cinfo.err = jpeg_std_error(&jerr);
 	jpeg_create_compress(&cinfo);
@@ -478,6 +479,19 @@ void MjpegEncoder::encodeThread(int num)
 		}
 
 		frames++;
+
+		auto now = std::chrono::steady_clock::now();
+		if (frames == 1)
+			last_log = now;
+		auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_log).count();
+		if (elapsed_ms >= 5000 && frames > 1) {
+			double fps = ((frames - 1) * 1000.0) / elapsed_ms;
+			std::cout << "[GPU] Streaming " << encode_item.info.width << "x"
+				  << encode_item.info.height << " @ " << fps
+				  << " fps (" << buffer_len << " B/frame)" << std::endl;
+			frames = 1;
+			last_log = now;
+		}
 
 		if (!abortEncode_ && output_ready_callback_) {
 			output_ready_callback_(encoded_buffer, buffer_len,

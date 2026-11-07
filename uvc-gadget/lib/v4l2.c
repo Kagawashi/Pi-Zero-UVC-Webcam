@@ -814,8 +814,10 @@ int v4l2_queue_buffer(struct v4l2_device *dev, struct video_buffer *buffer)
 	if (dev->memtype == V4L2_MEMORY_DMABUF)
 		buf.m.fd = (unsigned long)dev->buffers.buffers[buffer->index].dmabuf;
 
-	if (dev->type == V4L2_BUF_TYPE_VIDEO_OUTPUT)
+	if (dev->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
 		buf.bytesused = buffer->bytesused;
+		buf.timestamp = buffer->timestamp;
+	}
 
 	ret = ioctl(dev->fd, VIDIOC_QBUF, &buf);
 	if (ret < 0) {

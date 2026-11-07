@@ -319,6 +319,62 @@ main() {
 
     # Launch uvc-gadget with clean exec process handoff
     if [ "$CAM_SRC" = "libcamera" ]; then
+        mkdir -p /etc/picam
+        cat > /etc/picam/rpi_pipeline.yaml << 'EOF'
+{
+    "version": 1.0,
+    "target": "bcm2835",
+    "pipeline_handler": {
+        "min_unicam_buffers": 6,
+        "min_total_unicam_buffers": 8
+    }
+}
+EOF
+        export LIBCAMERA_RPI_CONFIG_FILE="/etc/picam/rpi_pipeline.yaml"
+
+        SRC_TUNING="/usr/share/libcamera/ipa/rpi/vc4/${SENSOR}.json"
+        if [ ! -f "$SRC_TUNING" ] && [ -f "/usr/share/libcamera/ipa/rpi/vc4/${SENSOR}_mono.json" ]; then
+            SRC_TUNING="/usr/share/libcamera/ipa/rpi/vc4/${SENSOR}_mono.json"
+        fi
+        FAST_TUNING="/etc/picam/${SENSOR}_fast.json"
+        if [ -f "$SRC_TUNING" ] && command -v python3 >/dev/null 2>&1; then
+            python3 - "$SRC_TUNING" "$FAST_TUNING" << 'PYEOF'
+import json, sys
+src, dst = sys.argv[1], sys.argv[2]
+with open(src, "r") as f:
+    data = json.load(f)
+drop = {"rpi.dpc", "rpi.geq", "rpi.sdn", "rpi.hdr", "rpi.sharpen"}
+algos = []
+for item in data.get("algorithms", []):
+    name = next(iter(item.keys()), "")
+    if name in drop:
+        continue
+    cfg = item[name]
+    if name == "rpi.alsc" and isinstance(cfg, dict):
+        cfg["n_iter"] = 0
+    elif name == "rpi.awb" and isinstance(cfg, dict):
+        cfg["bayes"] = 0
+    elif name == "rpi.contrast" and isinstance(cfg, dict):
+        cfg["ce_enable"] = 0
+    elif name == "rpi.agc" and isinstance(cfg, dict):
+        for mode in cfg.get("exposure_modes", {}).values():
+            if isinstance(mode, dict) and "shutter" in mode:
+                mode["shutter"] = [min(int(x), 16666) for x in mode["shutter"]]
+        for chan in cfg.get("channels", []):
+            for mode in chan.get("exposure_modes", {}).values():
+                if isinstance(mode, dict) and "shutter" in mode:
+                    mode["shutter"] = [min(int(x), 16666) for x in mode["shutter"]]
+    algos.append({name: cfg})
+data["algorithms"] = algos
+with open(dst, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+            if [ -f "$FAST_TUNING" ]; then
+                export LIBCAMERA_RPI_TUNING_FILE="$FAST_TUNING"
+                log "[✓] Enabled high-FPS libcamera tuning: $FAST_TUNING"
+            fi
+        fi
+
         log "[*] Launching uvc-gadget (libcamera backend)..."
         exec uvc-gadget -c 0 uvc.usb0
     elif [ "$CAM_SRC" = "test-pattern" ]; then

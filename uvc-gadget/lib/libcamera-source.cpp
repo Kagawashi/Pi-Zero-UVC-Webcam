@@ -157,12 +157,14 @@ static void libcamera_source_video_process(void *d)
 			continue;
 		}
 
+		int64_t timestamp_us = framebuf->metadata().timestamp / 1000;
 		struct video_buffer buffer;
 		buffer.index = request->cookie();
 		buffer.size = framebuf->planes()[0].length;
 		buffer.mem = NULL;
 		buffer.bytesused = framebuf->metadata().planes()[0].bytesused;
-		buffer.timestamp.tv_usec = framebuf->metadata().timestamp;
+		buffer.timestamp.tv_sec = timestamp_us / 1000000;
+		buffer.timestamp.tv_usec = timestamp_us % 1000000;
 		buffer.error = false;
 
 		src->src.handler(src->src.handler_data, &src->src, &buffer);
