@@ -10,6 +10,7 @@
 #include <atomic>
 #include <errno.h>
 #include <fcntl.h>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory.h>
@@ -255,10 +256,57 @@ static void libcamera_source_destroy(struct video_source *s)
 	delete src;
 }
 
+static void update_fast_crop_for_resolution(unsigned int width, unsigned int height)
+{
+	const char *sys_path = "/sys/module/ov5647/parameters/fast_crop";
+	if (access(sys_path, W_OK) != 0)
+		return;
+
+	// Default policy: fast_crop=false by default. Mode 3 (640x480 @ 100 FPS) is used
+	// and cleanly downscaled by bcm2835-isp hardware, avoiding sensor Bayer misalignment artifacts.
+	bool enable_fast_crop = false;
+
+	// Read override from /etc/picam/config.json if present
+	std::ifstream cfg_file("/etc/picam/config.json");
+	if (cfg_file.is_open()) {
+		std::string content((std::istreambuf_iterator<char>(cfg_file)),
+				    std::istreambuf_iterator<char>());
+		cfg_file.close();
+
+		char key[64];
+		snprintf(key, sizeof(key), "\"%ux%u\"", width, height);
+		size_t pos = content.find(key);
+		if (pos != std::string::npos) {
+			size_t colon = content.find(':', pos);
+			if (colon != std::string::npos) {
+				size_t val_start = content.find_first_not_of(" \t\r\n", colon + 1);
+				if (val_start != std::string::npos) {
+					if (content.compare(val_start, 4, "true") == 0)
+						enable_fast_crop = true;
+					else if (content.compare(val_start, 5, "false") == 0)
+						enable_fast_crop = false;
+				}
+			}
+		}
+	}
+
+	std::ofstream sys_file(sys_path);
+	if (sys_file.is_open()) {
+		sys_file << (enable_fast_crop ? "1" : "0") << std::endl;
+		sys_file.close();
+		std::cout << "[libcamera-source] Fast Crop for " << width << "x" << height
+			  << " -> " << (enable_fast_crop ? "ENABLED (High-FPS Cropped Mode)" : "DISABLED (Full FOV)")
+			  << std::endl;
+	}
+}
+
 static int libcamera_source_set_format(struct video_source *s,
 				       struct v4l2_pix_format *fmt)
 {
 	struct libcamera_source *src = to_libcamera_source(s);
+
+	update_fast_crop_for_resolution(fmt->width, fmt->height);
+
 	StreamConfiguration &streamConfig = src->config->at(0);
 	__u32 chosen_pixelformat = fmt->pixelformat;
 

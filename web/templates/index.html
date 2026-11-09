@@ -722,6 +722,43 @@
         </section>
 
         <!-- ============================================================= -->
+        <!-- Çözünürlük Bazlı Hızlı Kırpma & Görüş Alanı (Fast-Crop & FOV) -->
+        <!-- ============================================================= -->
+        <section class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>⚡ Çözünürlük Bazlı Hızlı Kırpma & Görüş Alanı (Fast-Crop)</span>
+                <span id="fastCropSysfsBadge" style="font-size: 0.8rem; font-weight: normal; padding: 4px 10px; border-radius: 6px; background: rgba(52, 211, 153, 0.15); color: var(--green);">
+                    {% if status and status.fast_crop_sysfs %}⚡ 191 FPS Kırpma Aktif{% else %}🔍 Tam Görüş Alanı{% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <p style="font-size: 0.875rem; color: var(--text2); margin-bottom: 16px;">
+                    Pupil Capture veya OBS'te çözünürlüğü seçtiğinizde kameranın hangi donanım modunda çalışacağını buradan belirleyin. <strong>Hızlı Kırpma</strong> açıkken sensörün merkez alanı okunur ve <strong>120-190 FPS</strong> hızına ulaşılır. Kapalıyken tüm sensör alanı (Full FOV) binned olarak okunur.
+                </p>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text2);">
+                                <th style="padding: 10px 12px;">Çözünürlük</th>
+                                <th style="padding: 10px 12px;">Kullanım Amacı</th>
+                                <th style="padding: 10px 12px;">Sensör Modu</th>
+                                <th style="padding: 10px 12px; text-align: right;">Hızlı Kırpma (High-FPS)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fastCropTableBody">
+                            <!-- Satırlar JavaScript tarafından dinamik olarak listelenir -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="info-box" style="margin-top: 16px;">
+                    💡 <strong>Not:</strong> Bu ayarlar anında aktiftir. Pupil Capture uygulamasında ilgili çözünürlüğü seçtiğiniz anda kamera belirlenen modda (Kırpılmış 120-190 FPS veya Tam Görüş Alanı) çalışır. Servisi yeniden başlatmanız gerekmez.
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
         <!-- Kullanım Bilgisi -->
         <!-- ============================================================= -->
         <section class="card">
@@ -987,6 +1024,79 @@
         }
 
         // =====================================================================
+        // Fast-Crop (Çözünürlük Bazlı Hızlı Kırpma) Yönetimi
+        // =====================================================================
+
+        const FAST_CROP_INFO = [
+            { res: '192x192', label: '192x192', purpose: 'Pupil Göz Takibi (Eye Tracking)', cropDesc: '⚡ 320x240 Merkez Kırpma (191 FPS)', fullDesc: '🔍 640x480 Binned Full FOV (100 FPS)' },
+            { res: '320x240', label: '320x240 (320p)', purpose: 'Yüksek Hızlı Göz Takibi (Düşük CPU)', cropDesc: '⚡ 320x240 Merkez Kırpma (191 FPS)', fullDesc: '🔍 640x480 Binned Full FOV (100 FPS)' },
+            { res: '400x400', label: '400x400 (400p)', purpose: 'Kare Göz Takibi', cropDesc: '⚡ 320x240 Kırpma Modu', fullDesc: '🔍 640x480 Binned Full FOV' },
+            { res: '640x480', label: '640x480 (VGA)', purpose: 'Standart Göz / Dünya Sahnesi', cropDesc: '⚡ 320x240 Kırpma Modu', fullDesc: '🔍 2560x1920 Binned Tam Sensör (100 FPS)' },
+            { res: '800x600', label: '800x600 (SVGA)', purpose: 'Geniş Çevre / Sahne Kamerası', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 Tam Sensör Geniş Açı' },
+            { res: '1280x720', label: '1280x720 (720p)', purpose: 'HD Dünya Sahne Kaydı', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 2592x1944 Binned HD Geniş Açı' }
+        ];
+
+        let currentFastCropConfig = {{ (config.fast_crop if config and config.fast_crop else {}) | tojson }};
+        if (!currentFastCropConfig || Object.keys(currentFastCropConfig).length === 0) {
+            currentFastCropConfig = {
+                "192x192": true,
+                "320x240": true,
+                "400x400": false,
+                "640x480": false,
+                "800x600": false,
+                "1280x720": false
+            };
+        }
+
+        function renderFastCropTable(cfg) {
+            if (cfg) currentFastCropConfig = cfg;
+            const tbody = document.getElementById('fastCropTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            FAST_CROP_INFO.forEach(item => {
+                const isChecked = !!currentFastCropConfig[item.res];
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border)';
+
+                tr.innerHTML = `
+                    <td style="padding: 12px; font-weight: 600;">${item.label}</td>
+                    <td style="padding: 12px; color: var(--text2);">${item.purpose}</td>
+                    <td style="padding: 12px;">
+                        <span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; background: ${isChecked ? 'rgba(79, 140, 255, 0.15)' : 'rgba(52, 211, 153, 0.15)'}; color: ${isChecked ? 'var(--accent)' : 'var(--green)'};">
+                            ${isChecked ? item.cropDesc : item.fullDesc}
+                        </span>
+                    </td>
+                    <td style="padding: 12px; text-align: right;">
+                        <label class="switch" style="display: inline-block;">
+                            <input type="checkbox" data-res="${item.res}" ${isChecked ? 'checked' : ''} onchange="toggleFastCrop('${item.res}', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function toggleFastCrop(resKey, isChecked) {
+            currentFastCropConfig[resKey] = isChecked;
+            renderFastCropTable(currentFastCropConfig);
+
+            const result = await apiCall('/api/fast_crop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [resKey]: isChecked }),
+            });
+
+            if (result && result.status === 'ok') {
+                showToast(`✓ ${resKey} modu: ${isChecked ? '⚡ Hızlı Kırpma (190 FPS)' : '🔍 Tam Görüş Alanı (Full FOV)'}`, 'success');
+                refreshStatus();
+            } else {
+                showToast(`✗ Ayar kaydedilemedi: ${result?.message || 'hata'}`, 'error');
+            }
+        }
+
+        // =====================================================================
         // Durum Güncelleme
         // =====================================================================
 
@@ -1016,6 +1126,20 @@
                 if (el) el.textContent = data.resolution;
             }
 
+            // Fast-Crop durum rozeti
+            const badge = document.getElementById('fastCropSysfsBadge');
+            if (badge) {
+                if (data.fast_crop_sysfs === true) {
+                    badge.innerHTML = '⚡ 191 FPS Kırpma Aktif';
+                    badge.style.background = 'rgba(79, 140, 255, 0.2)';
+                    badge.style.color = 'var(--accent)';
+                } else if (data.fast_crop_sysfs === false) {
+                    badge.innerHTML = '🔍 Tam Görüş Alanı Aktif';
+                    badge.style.background = 'rgba(52, 211, 153, 0.2)';
+                    badge.style.color = 'var(--green)';
+                }
+            }
+
             // Header durumu
             const dot = document.getElementById('headerDot');
             const statusText = document.getElementById('headerStatus');
@@ -1030,6 +1154,7 @@
 
         // İlk açılışta yardım metnini ayarla
         onRoleChange(document.getElementById('cameraRole').value);
+        renderFastCropTable(currentFastCropConfig);
 
         // Her 5 saniyede durum güncelle
         setInterval(refreshStatus, 5000);

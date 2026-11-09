@@ -121,6 +121,10 @@ foreach ($item in $PayloadNames) {
     }
     $PayloadItems += $fullPath
 }
+$KernelDir = Join-Path $ScriptDir "kernel"
+if (Test-Path -Path $KernelDir) {
+    $PayloadItems += $KernelDir
+}
 
 # Clean local uvc-gadget/build if present to prevent transferring host x86 build artifacts
 $HostBuildDir = Join-Path $ScriptDir "uvc-gadget\build"
@@ -191,9 +195,12 @@ if ($SkipInstall) {
     $RemoteSetupCmd = "cd ""$RemoteDest"" && " +
         "sudo install -m 755 scripts/setup-gadget.sh /usr/local/bin/setup-gadget.sh && " +
         "sudo install -m 755 scripts/start-uvc.sh /usr/local/bin/start-uvc.sh && " +
+        "( [ ! -f scripts/build-ov5647-driver.sh ] || sudo install -m 755 scripts/build-ov5647-driver.sh /usr/local/bin/build-ov5647-driver.sh ) && " +
+        "( [ ! -d web ] || ( sudo cp -r web/*.py /opt/picam-web/ 2>/dev/null || true; sudo cp -r web/templates /opt/picam-web/ 2>/dev/null || true ) ) && " +
         "sudo install -m 644 services/uvc-gadget.service /etc/systemd/system/uvc-gadget.service && " +
         "sudo install -m 644 services/picam-web.service /etc/systemd/system/picam-web.service && " +
         "sudo systemctl daemon-reload && " +
+        "sudo systemctl restart picam-web && " +
         "$ConfigUpdateCmd && " +
         "sudo systemctl stop uvc-gadget 2>/dev/null; " +
         "sudo /usr/local/bin/setup-gadget.sh '$Role' restart && " +

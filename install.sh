@@ -74,7 +74,16 @@ apt-get install -y \
     python3-venv \
     python3-pip \
     v4l-utils \
-    jq
+    jq \
+    xz-utils \
+    build-essential
+
+# Kernel modülü derleme için başlık dosyaları (Kernel Headers)
+KVER="$(uname -r)"
+if [ ! -d "/lib/modules/$KVER/build" ]; then
+    info "Kernel başlıkları (linux-headers-$KVER) kontrol ediliyor..."
+    apt-get install -y "linux-headers-$KVER" 2>/dev/null || apt-get install -y raspberrypi-kernel-headers 2>/dev/null || true
+fi
 
 success "Bağımlılıklar başarıyla kuruldu."
 
@@ -185,13 +194,24 @@ else
 fi
 
 # =============================================================================
+# 3b. OV5647 Yüksek FPS (120-190 FPS) Çekirdek Sürücüsü Kurulumu
+# =============================================================================
+if [ -d "$SCRIPT_DIR/kernel/ov5647" ] && [ -f "$SCRIPT_DIR/scripts/build-ov5647-driver.sh" ]; then
+    info "OV5647 120-190 FPS donanımsal merkez kırpma modülü derlenip kuruluyor..."
+    bash "$SCRIPT_DIR/scripts/build-ov5647-driver.sh" || warn "OV5647 yüksek FPS modülü derlenemedi, standart çekirdek sürücüsüyle devam ediliyor."
+fi
+
+# =============================================================================
 # 4. Sistem Betikleri Kurulumu
 # =============================================================================
 info "4/7 - Sistem başlatma ve ConfigFS betikleri kopyalanıyor..."
 
 install -m 755 "$SCRIPT_DIR/scripts/setup-gadget.sh" /usr/local/bin/setup-gadget.sh
 install -m 755 "$SCRIPT_DIR/scripts/start-uvc.sh" /usr/local/bin/start-uvc.sh
-success "setup-gadget.sh ve start-uvc.sh → /usr/local/bin/ dizinine kuruldu."
+if [ -f "$SCRIPT_DIR/scripts/build-ov5647-driver.sh" ]; then
+    install -m 755 "$SCRIPT_DIR/scripts/build-ov5647-driver.sh" /usr/local/bin/build-ov5647-driver.sh
+fi
+success "Sistem betikleri → /usr/local/bin/ dizinine kuruldu."
 
 # =============================================================================
 # 5. Web Kontrol Paneli Kurulumu (:8080)
@@ -240,6 +260,14 @@ if [ ! -f /etc/picam/config.json ]; then
   "fps": 90,
   "width": 640,
   "height": 480,
+  "fast_crop": {
+    "192x192": false,
+    "320x240": false,
+    "400x400": false,
+    "640x480": false,
+    "800x600": false,
+    "1280x720": false
+  },
   "hflip": false,
   "vflip": false,
   "brightness": 50,
@@ -290,9 +318,10 @@ echo -e "${GREEN}========================================================${NC}"
 echo ""
 echo "  Kurulan Bileşenler:"
 echo "  ├── UVC Gadget Çekirdeği : $(which uvc-gadget) (VideoCore IV GPU DMABUF Release)"
+echo "  ├── OV5647 Yüksek FPS    : 120-190 FPS Modeli (320x240 Donanımsal Merkez Kırpma & Dinamik sysfs)"
 echo "  ├── ConfigFS Betiği      : /usr/local/bin/setup-gadget.sh"
-echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh (Otomatik Hızlı IPA & Unicam Tuning)"
-echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080, Sıfır-Subprocess sysfs İzleme)"
+echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh (Dinamik Çözünürlük Bazlı Kırpma)"
+echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080, Canlı Fast-Crop / FOV Seçimi)"
 echo "  ├── Kamera Ayarları      : /etc/picam/config.json, rpi_pipeline.yaml, <sensor>_fast.json"
 echo "  └── Otomatik Servisler   : uvc-gadget.service, picam-web.service"
 echo ""

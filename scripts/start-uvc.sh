@@ -357,7 +357,7 @@ import json, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, "r") as f:
     data = json.load(f)
-keep = {"rpi.black_level", "rpi.lux", "rpi.agc", "rpi.ccm", "rpi.contrast"}
+keep = {"rpi.black_level", "rpi.lux", "rpi.agc", "rpi.ccm", "rpi.contrast", "rpi.awb"}
 algos = []
 for item in data.get("algorithms", []):
     name = next(iter(item.keys()), "")
@@ -398,6 +398,13 @@ PYEOF
             sleep 0.5
             CAM_WAIT=$((CAM_WAIT - 1))
         done
+
+        if [ -f /sys/module/ov5647/parameters/fast_crop ]; then
+            chmod 0666 /sys/module/ov5647/parameters/fast_crop 2>/dev/null || true
+            # Keep fast_crop disabled (0) by default to prevent sensor Bayer misalignment & stripe artifacts.
+            # Mode 3 (640x480 @ 100fps) is cleanly scaled by bcm2835-isp hardware for lower resolutions.
+            echo 0 > /sys/module/ov5647/parameters/fast_crop 2>/dev/null || true
+        fi
 
         log "[*] Launching uvc-gadget (libcamera backend)..."
         exec uvc-gadget -c 0 uvc.usb0

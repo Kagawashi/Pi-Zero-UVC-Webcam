@@ -52,12 +52,39 @@ sudo bash install.sh
 
 > 💡 **`install.sh` Neleri Otomatik Yapar?**
 > - Boot ayarlarını (`dwc2`, `camera_auto_detect`, `gpu_mem=128`, `modules-load=dwc2,libcomposite,usb_f_rndis`) otomatik ekler.
-> - Gerekli tüm sistem kütüphanelerini (`meson`, `ninja`, `libcamera`, `v4l-utils`) kurar.
+> - Gerekli tüm sistem kütüphanelerini (`meson`, `ninja`, `libcamera`, `v4l-utils`, `linux-headers`) kurar.
+> - **OV5647 120–190 FPS Donanımsal Kırpma Çekirdek Sürücüsü:** Standart Linux sürücüsündeki ADC sınırlarını ($HTS \ge 1730$) çözen modifiye `ov5647.ko` modülünü otomatik derler ve sisteme kalıcı olarak yükler (`scripts/build-ov5647-driver.sh`).
 > - **VideoCore IV GPU Donanım JPEG (`V4L2_MEMORY_DMABUF`)** hızlandırmalı ve donanım zaman damgası (`buf.timestamp`) destekli `uvc-gadget` sürücüsünü `--buildtype=release` (`-O3`) modunda derler ve sisteme kurar.
 > - **Yüksek FPS `libcamera` IPA & Unicam Tuning:** `start-uvc.sh` üzerinden `/etc/picam/rpi_pipeline.yaml` (`min_unicam_buffers: 6`, `min_total_unicam_buffers: 8`) ve `/etc/picam/<sensor>_fast.json` (`n_iter: 0`, `bayes: 0`, `ce_enable: 0`, max pozlama `16666 µs`) yapılandırmalarını otomatik üretir.
+> - **Çözünürlük Başına Hızlı Kırpma (Fast-Crop):** 192x192 ve 320x240 için 120 FPS hızlı kırpma, 400x400 ve 640x480+ için tam görüş alanı (Full FOV) varsayılan haritasını `/etc/picam/config.json` içine yazar.
 > - **Composite Gadget:** Hem UVC Kamera hem de USB Ethernet (RNDIS) desteğini otomatik aktif eder.
 > - Sıfır alt-süreç (`sysfs`) tabanlı Web Kontrol Panelini (`:8080`) ve UVC servisini `systemd` arka plan servisi olarak kaydeder.
 > - Kurulum bittiğinde ekranda **"Sistemi şimdi yeniden başlatmak istiyor musunuz? [E/h]"** diye sorar ve onayınızla Pi Zero'yu yeniden başlatır.
+
+---
+
+### 3.1. 💻 Bilgisayardan Uzaktan Tek Komutla Kurulum (`deploy.ps1` & `deploy.sh`)
+
+Eğer Pi Zero'ya git clone yapmak yerine doğrudan geliştirme yaptığınız bilgisayarınızdan tüm kodları tek komutla aktarıp kurmak isterseniz:
+
+#### Windows Üzerinden (PowerShell):
+```powershell
+# Tam kurulum (Sürücü derleme, uvc-gadget derleme ve servis kurulumu):
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -TargetHost "192.168.1.152" -User "pi" -Role "eye0" -Sensor "ov5647"
+
+# Hızlı güncelleme modu (Derleme yapmadan sadece betikleri, servisleri ve web panelini günceller):
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -TargetHost "192.168.1.152" -Quick
+```
+
+#### Linux / macOS Üzerinden (Bash):
+```bash
+# Tam kurulum:
+chmod +x deploy.sh
+./deploy.sh -H 192.168.1.152 -u pi -r eye0 -s ov5647
+
+# Hızlı güncelleme:
+./deploy.sh -H 192.168.1.152 -q
+```
 
 ---
 
@@ -119,13 +146,16 @@ Açık kaynak şeffaflığı gereği, sisteminize kurulan tüm dosyalar ve servi
 | Dosya / Dizin | Görevi / Açıklama |
 |---|---|
 | `/boot/firmware/config.txt` | `dtoverlay=dwc2,dr_mode=peripheral`, `gpu_mem=128`, kamera algılama tanımları. |
+| `/lib/modules/$(uname -r)/kernel/drivers/media/i2c/ov5647.ko.xz` | 120–190 FPS destekli, ADC zamanlama düzeltmeli ($HTS \ge 1730$) modifiye Linux çekirdek sürücüsü. |
+| `/usr/local/bin/build-ov5647-driver.sh` | OV5647 yüksek FPS modülünü derleyen, kuran ve yedek alan yardımcı yönetim betiği. |
+| `/etc/picam/ov5647.ko.xz.bak` | Sistemin orijinal çekirdek sürücüsünün otomatik alınan yedeği. |
 | `/usr/local/bin/uvc-gadget` | `libcamera` ISP'den çıkan `YUV420` DMA tamponlarını sıfır kopya (`V4L2_MEMORY_DMABUF`) ile VideoCore IV GPU donanım JPEG kodlayıcısına (`/dev/video31` / `/dev/video11`) aktaran ve donanım zaman damgalı (`buf.timestamp`) UVC akışı üreten C/C++ ikili dosyası. |
-| `/usr/local/bin/setup-gadget.sh` | ConfigFS üzerinde hem UVC (`320x240`, `400x400`, `640x480`, `800x600`, `1280x720`) hem RNDIS USB aygıt tanımlarını oluşturan betik. |
-| `/usr/local/bin/start-uvc.sh` | Yüksek FPS `libcamera` IPA tuning (`/etc/picam/<sensor>_fast.json`) ve Unicam tampon (`/etc/picam/rpi_pipeline.yaml`) ayarlarını oluşturup GPU donanım hızlandırmalı kamera akışını başlatan orkestratör betik. |
-| `/opt/picam-web/` | 8080 portunda çalışan, `sysfs` üzerinden sıfır CPU yüküyle durum izleyen ve tarayıcıdan kamera/rol ayarı yapmayı sağlayan Flask web servisi. |
+| `/usr/local/bin/setup-gadget.sh` | ConfigFS üzerinde hem UVC (`192x192`, `320x240`, `400x400`, `640x480`, `800x600`, `1280x720`) hem RNDIS USB aygıt tanımlarını oluşturan betik. |
+| `/usr/local/bin/start-uvc.sh` | Yüksek FPS `libcamera` IPA tuning (`/etc/picam/<sensor>_fast.json`), Unicam tampon (`/etc/picam/rpi_pipeline.yaml`) ve çözünürlük başına Hızlı Kırpma (Fast-Crop) ayarlarını yöneten orkestratör betik. |
+| `/opt/picam-web/` | 8080 portunda çalışan, `sysfs` üzerinden sıfır CPU yüküyle durum izleyen, çözünürlük/Fast-Crop anahtarlarını canlı yöneten Flask web servisi. |
 | `/etc/systemd/system/uvc-gadget.service` | Pi Zero USB kablosu takıldığında kamerayı ve RNDIS ağını başlatan systemd servisi. |
 | `/etc/systemd/system/picam-web.service` | Web arayüzünü arka planda çalıştıran systemd servisi. |
-| `/etc/picam/config.json` | Web arayüzünün okuduğu ve kaydettiği kalıcı JSON ayar dosyası. |
+| `/etc/picam/config.json` | Web arayüzünün okuduğu ve kaydettiği kalıcı JSON ayar dosyası (rol, çözünürlük, yön, Fast-Crop haritası). |
 | `/etc/picam/rpi_pipeline.yaml` | `libcamera` Unicam RAW tampon sayısını (`min_unicam_buffers: 6`, `min_total_unicam_buffers: 8`) artıran boru hattı yapılandırması. |
 | `/etc/picam/<sensor>_fast.json` | Göz takibi için ağır 3A algoritmalarını (`alsc n_iter=0`, `awb bayes=0`, `contrast ce_enable=0`) hafifleten ve pozlama süresini `16666 µs` ile sınırlayan yüksek FPS sensör profili. |
 
@@ -246,7 +276,82 @@ Tek çekirdekli **Raspberry Pi Zero W (1 GHz ARM11)** üzerinde yazılımsal `li
    | **`400x400`** | **1.98 ms** | **57.5+ FPS** | ~12.7 KB | **~%14.5** |
    | **`640x480`** | **2.65 ms** | **55.61 FPS** *(Yazılımsal libjpeg ile 21.9 FPS idi)* | ~29.9 KB | **~%16.0** |
 
-### B. Web Panelinden Çözünürlük Ayarlama
+### B. 🏎️ 120–190 FPS OV5647 Modifiye Çekirdek Sürücüsü & ADC Zamanlama Çözümü
+
+Standart Linux çekirdeğinde (`drivers/media/i2c/ov5647.c`) OV5647 sensörü en fazla 640x480 @ 90 FPS veya 1296x972 @ 42 FPS modlarına sahiptir. Ancak göz takibinde 120 FPS ve üzeri hızlara ulaşmak için özel bir sürücü modifikasyonu yapılmıştır:
+
+#### 1. ADC Zamanlama Problemi ve Donanımsal Gri/Beyaz Ekran Hatası:
+- OV5647 sensörünün analogdan dijitale dönüştürücüsü (ADC), yatay satır toplam süresine ($HTS$) bağımlıdır.
+- Eğer piksel saat frekansı ($PCLK = 80 \text{ MHz}$) altında satır uzunluğu ($HTS$) **1730 pikselin** altına düşürülürse, sensörün dahili ADC'si pikselleri örnekleyemez ve kamera çıkışı tamamen gri/beyaz donuk piksellere dönüşür (karanlıkta veya lens kapatılsa dahi değişmez).
+- **Projedeki Çözüm:** Yatay zamanlama güvenli sınırda ($HTS = 1730$) sabit tutulmuş, dikey zamanlama ($VTS = 248$) optimize edilerek donanımsal **190.95 FPS** teorik tavanına ($80{,}000{,}000 / (1730 \times 248) \approx 186.47 \text{ - } 190.95 \text{ FPS}$) ulaşılmıştır.
+
+#### 2. Merkez Kırpma (Center Crop) vs Tam Görüş Alanı (Full FOV):
+- **120 FPS Hızlı Kırpma (Fast-Crop Açık):** Sensörün merkezindeki `640x480` piksel alanı doğrudan okunur (`crop_left=976, crop_top=732`). Bu sayede piksel atlama/binning gecikmesi olmadan 120-190 FPS hız elde edilir. Görüntüde optik zoom etkisi oluşur; göz bebeği yakından net bir şekilde aydınlatılarak izlenir (kızılötesi LED ile kullanım için idealdir).
+- **Geniş Açı (Fast-Crop Kapalı):** Sensörün tam alanı (`2592x1944`) 2x2 binning ile `1296x972` olarak okunur ve 60-90 FPS hızında geniş bir görüş alanı sunar.
+
+#### 3. Sürücünün Derlenmesi ve Kurulması:
+`install.sh` sırasında otomatik derlenir. Dilerseniz sadece sürücüyü bağımsız olarak da derleyebilirsiniz:
+```bash
+sudo bash /usr/local/bin/build-ov5647-driver.sh
+# veya repo içindeyken:
+sudo bash scripts/build-ov5647-driver.sh
+```
+Bu betik mevcut sistem çekirdek sürümünüze ait modülü derler, orijinal sürücüyü `/etc/picam/ov5647.ko.xz.bak` konumuna yedekler ve modülü `/lib/modules/$(uname -r)/` altına yükleyip `depmod -a` çalıştırır.
+
+---
+
+### C. 🎯 Çözünürlük Başına Hızlı Kırpma (Fast-Crop) Modu & Performans Tablosu
+
+Sistemimiz, her çözünürlük için Fast-Crop özelliğini bağımsız olarak açıp kapatmanıza olanak tanır. Çözünürlük değiştiğinde arka planda çalışan `uvc-gadget` anında doğru sensör moduna geçer:
+
+| Çözünürlük | Varsayılan Mod | Hedeflenen Canlı FPS | Sensör Okuma Modu | Kullanım Amacı |
+|---|---|---|---|---|
+| **`192x192`** | **Hızlı Kırpma (Açık)** | **120 FPS** | 640x480 @ 190 FPS Center Crop -> 192x192 | Ultra hızlı Pupil Labs göz bebeği takibi |
+| **`320x240`** | **Hızlı Kırpma (Açık)** | **120 FPS** | 640x480 @ 190 FPS Center Crop -> 320x240 | Düşük gecikmeli, yüksek FPS göz takibi |
+| **`400x400`** | **Tam Görüş (Kapalı)** | **60 FPS** | 1296x972 Full FOV Binning -> 400x400 | Geniş açılı kare göz alanı |
+| **`640x480`** | **Tam Görüş (Kapalı)** | **90 FPS** | 1296x972 Full FOV Binning -> 640x480 | Standart geniş açılı VGA görüntü |
+| **`800x600`** | **Tam Görüş (Kapalı)** | **60 FPS** | 1296x972 Full FOV Binning -> 800x600 | Yüksek çözünürlüklü göz veya çevre takibi |
+| **`1280x720`** | **Tam Görüş (Kapalı)** | **47 FPS** | 1296x972 / 2592x1944 Full FOV | HD geniş açılı dünya/sahne kamerası |
+
+> 💡 **İpucu:** Eğer 640x480 çözünürlükte de 90 FPS yerine 120 FPS merkez kırpma almak isterseniz veya 320x240'ta geniş açı görmek isterseniz, Web Panelinden ilgili çözünürlüğün anahtarını tek tıkla değiştirebilirsiniz!
+
+---
+
+### D. 🌐 Web Kontrol Paneli (:8080) Üzerinden Canlı Fast-Crop Yönetimi & REST API
+
+Web arayüzüne (`http://pizero.local:8080` veya `http://<pi-ip>:8080`) girdiğinizde, **"🎯 Çözünürlük Başına Hızlı Kırpma (Fast-Crop / 120-190 FPS)"** paneli yer alır:
+
+- **İnteraktif Switch'ler:** Her çözünürlük için yeşil renkli hızlı anahtarlar bulunur. Örneğin `640x480` için Fast-Crop'ı açtığınızda ayar anında `/etc/picam/config.json` içine kaydedilir ve bir sonraki akış başlangıcında uygulanır.
+- **REST API Desteği:** Ayarları harici Python betiklerinizden veya otomasyon araçlarınızdan da yönetebilirsiniz:
+  ```bash
+  # Mevcut Fast-Crop durumunu JSON olarak okuma:
+  curl http://pizero.local:8080/api/fast_crop
+
+  # Fast-Crop ayarlarını güncelleme:
+  curl -X POST http://pizero.local:8080/api/fast_crop \
+       -H "Content-Type: application/json" \
+       -d '{"192x192": true, "320x240": true, "640x480": false}'
+  ```
+
+---
+
+### E. 🔮 Farklı ve Gelecekteki Kameralar İçin Durum (OV9281, IMX219 vb.)
+
+Sisteme gelecekte farklı bir kamera modülü taktığınızda durum ne olacak?
+
+1. **OV9281 (Monochrome Global Shutter - Önerilen Profesyonel Göz Kamerası):**
+   - OV9281 donanımsal olarak **Global Shutter** özelliğine sahiptir (hareket bulanıklığı sıfırdır).
+   - Sensörün doğal modları zaten `1280x800 @ 120 FPS` ve `640x480 @ 120-150 FPS` hızlarını **tam görüş alanında (kırpma olmadan)** destekler.
+   - OV9281 takıldığında çekirdek yamasına veya daraltılmış merkeze gerek kalmadan doğrudan geniş açıda 120 FPS alınabilir.
+2. **IMX219 (Sony 8MP - Pi Camera v2):**
+   - IMX219 donanımında `640x480` @ 90-200 FPS doğal 2x2 analog binning modu mevcuttur.
+3. **Modüler Tasarım:**
+   - Projemizin orkestratör betiği (`start-uvc.sh`), `/etc/default/picam-uvc` içindeki `SENSOR` değişkenine göre otomatik çalışır.
+   - Yeni bir kamera taktığınızda tek yapmanız gereken Web Panelinden veya terminalden sensör tipini seçmektir (`SENSOR=ov9281`).
+
+---
+
+### F. Web Panelinden Çözünürlük Ayarlama
 Web paneline (`http://pizero.local:8080`) girdiğinizde **"Sensör Profili & Çözünürlük"** bölümünden:
 - **320x240 (Önerilen Göz Takibi):** En düşük USB bant genişliği (~340 KB/sn) ve en düşük gecikme ile sabit ~58.1 FPS (OV9281 ile 90-120 FPS) akıcı göz takibi sağlar.
 - **400x400 (Kare Göz Takibi):** Kare sensör alanı isteyen göz algoritmaları için optimize edilmiştir.

@@ -29,6 +29,14 @@ DEFAULT_CONFIG = {
     "fps": 90,
     "width": 640,
     "height": 480,
+    "fast_crop": {
+        "192x192": True,
+        "320x240": True,
+        "400x400": False,
+        "640x480": False,
+        "800x600": False,
+        "1280x720": False,
+    },
     "hflip": False,
     "vflip": False,
     "brightness": 50,       # 0-100 (50 = normal)
@@ -406,6 +414,19 @@ def get_system_status() -> dict:
     status["height"] = height
     status["resolution"] = f"{width}x{height} @ {fps}fps"
 
+    # Fast-Crop (Yüksek FPS Kırpma) ayarları ve sysfs durumu
+    cfg = load_config()
+    status["fast_crop"] = cfg.get("fast_crop", DEFAULT_CONFIG["fast_crop"].copy())
+    try:
+        fc_sys = Path("/sys/module/ov5647/parameters/fast_crop")
+        if fc_sys.exists():
+            val = fc_sys.read_text(encoding="utf-8").strip()
+            status["fast_crop_sysfs"] = (val in ("Y", "1"))
+        else:
+            status["fast_crop_sysfs"] = None
+    except Exception:
+        status["fast_crop_sysfs"] = None
+
     return status
 
 
@@ -565,6 +586,13 @@ def api_set_config():
         if data["awb_mode"] in allowed:
             config["awb_mode"] = data["awb_mode"]
 
+    # Fast-Crop sözlüğü
+    if "fast_crop" in data and isinstance(data["fast_crop"], dict):
+        if "fast_crop" not in config or not isinstance(config["fast_crop"], dict):
+            config["fast_crop"] = DEFAULT_CONFIG["fast_crop"].copy()
+        for res_key, is_on in data["fast_crop"].items():
+            config["fast_crop"][str(res_key)] = bool(is_on)
+
     save_config(config)
 
     # Runtime kamera kontrollerini USB bağlantısını ve uvc-gadget servisini kesmeden canlı olarak uygula
@@ -577,6 +605,47 @@ def api_set_config():
         "status": "ok",
         "config": config,
         "restart": "Ayarlar canlı uygulandı (bağlantı kesilmedi)",
+    })
+
+
+@app.route("/api/fast_crop", methods=["GET", "POST"])
+def api_fast_crop():
+    """Çözünürlük bazında Hızlı Kırpma (High-FPS Center Crop) ayarlarını yönet."""
+    config = load_config()
+    if "fast_crop" not in config or not isinstance(config["fast_crop"], dict):
+        config["fast_crop"] = DEFAULT_CONFIG["fast_crop"].copy()
+
+    if request.method == "POST":
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"status": "error", "message": "Geçersiz veya boş JSON nesnesi"}), 400
+
+        for res_key, is_enabled in data.items():
+            config["fast_crop"][str(res_key)] = bool(is_enabled)
+
+        save_config(config)
+
+        # Aktif seçili çözünürlük için sysfs parametresini canlı güncelle
+        try:
+            cur_w = int(config.get("width", 640))
+            cur_h = int(config.get("height", 480))
+            res_key = f"{cur_w}x{cur_h}"
+            active_val = config["fast_crop"].get(res_key, (cur_w <= 320 and cur_h <= 240))
+            fc_path = Path("/sys/module/ov5647/parameters/fast_crop")
+            if fc_path.exists():
+                fc_path.write_text("1\n" if active_val else "0\n", encoding="utf-8")
+        except Exception:
+            pass
+
+        return jsonify({
+            "status": "ok",
+            "fast_crop": config["fast_crop"],
+            "message": "Çözünürlük kırpma tercihleri canlı olarak uygulandı",
+        })
+
+    return jsonify({
+        "status": "ok",
+        "fast_crop": config["fast_crop"],
     })
 
 
