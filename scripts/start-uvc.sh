@@ -357,7 +357,7 @@ import json, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, "r") as f:
     data = json.load(f)
-keep = {"rpi.black_level", "rpi.lux", "rpi.agc", "rpi.ccm", "rpi.contrast", "rpi.awb"}
+keep = {"rpi.black_level", "rpi.dpc", "rpi.lux", "rpi.noise", "rpi.geq", "rpi.sdn", "rpi.awb", "rpi.agc", "rpi.contrast", "rpi.ccm"}
 algos = []
 for item in data.get("algorithms", []):
     name = next(iter(item.keys()), "")
