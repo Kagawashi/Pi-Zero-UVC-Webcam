@@ -66,6 +66,9 @@ param (
     [switch]$SkipInstall,
 
     [Parameter()]
+    [switch]$Compile,
+
+    [Parameter()]
     [switch]$DryRun
 )
 
@@ -192,7 +195,11 @@ $ConfigUpdateCmd = "sudo mkdir -p /etc/default && " +
     "fi; chmod 644 /etc/default/picam-uvc'"
 
 if ($SkipInstall) {
+    $CompileCmd = if ($Compile) {
+        "( cd uvc-gadget && ( if [ -d build ]; then ninja -C build && sudo ninja -C build install; else make && sudo make install; fi ) ) && "
+    } else { "" }
     $RemoteSetupCmd = "cd ""$RemoteDest"" && " +
+        $CompileCmd +
         "sudo install -m 755 scripts/setup-gadget.sh /usr/local/bin/setup-gadget.sh && " +
         "sudo install -m 755 scripts/start-uvc.sh /usr/local/bin/start-uvc.sh && " +
         "( [ ! -f scripts/build-ov5647-driver.sh ] || sudo install -m 755 scripts/build-ov5647-driver.sh /usr/local/bin/build-ov5647-driver.sh ) && " +

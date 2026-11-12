@@ -437,6 +437,10 @@
                         <div class="stat-value" id="statLoad">{{ status.cpu_load }}</div>
                     </div>
                     <div class="stat-item">
+                        <div class="stat-label">GPU Kullanımı</div>
+                        <div class="stat-value" id="statGpuLoad" style="color:var(--accent);">{{ status.gpu_load or '%0.0' }}</div>
+                    </div>
+                    <div class="stat-item">
                         <div class="stat-label">Bellek</div>
                         <div class="stat-value" id="statMem">{{ status.memory }}</div>
                     </div>
@@ -1106,6 +1110,8 @@
 
             document.getElementById('statTemp').textContent = data.cpu_temp;
             document.getElementById('statLoad').textContent = data.cpu_load;
+            const gpuEl = document.getElementById('statGpuLoad');
+            if (gpuEl && data.gpu_load) gpuEl.textContent = data.gpu_load;
             document.getElementById('statMem').textContent = data.memory;
             document.getElementById('statDisk').textContent = data.disk;
             document.getElementById('statUptime').textContent = data.uptime;

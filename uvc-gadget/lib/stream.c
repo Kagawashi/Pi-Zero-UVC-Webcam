@@ -54,7 +54,7 @@ static void uvc_stream_source_process(void *d,
 	}
 }
 
-static void uvc_stream_uvc_process(void *d)
+static void __attribute__((unused)) uvc_stream_uvc_process(void *d)
 {
 	struct uvc_stream *stream = d;
 	struct v4l2_device *sink = uvc_v4l2_device(stream->uvc);
@@ -122,8 +122,11 @@ static int uvc_stream_start_alloc(struct uvc_stream *stream)
 	video_source_stream_on(stream->src);
 	v4l2_stream_on(sink);
 
-	events_watch_fd(stream->events, sink->fd, EVENT_WRITE,
-			uvc_stream_uvc_process, stream);
+	/* Note: For live video sources (DMABUF / ENCODED), buffer recycling
+	 * is clocked by video_source_set_buffer_handler (uvc_stream_source_process).
+	 * Do NOT watch sink->fd for EVENT_WRITE (POLLOUT) here, because a V4L2
+	 * output device with buffer room is ALWAYS write-ready, which causes select()
+	 * to spin in an infinite busy-loop consuming 90%+ CPU on single-core Pis. */
 
 	return 0;
 
@@ -225,8 +228,11 @@ static int uvc_stream_start_encoded(struct uvc_stream *stream)
 	video_source_stream_on(stream->src);
 	v4l2_stream_on(sink);
 
-	events_watch_fd(stream->events, sink->fd, EVENT_WRITE,
-			uvc_stream_uvc_process, stream);
+	/* Note: For live video sources (DMABUF / ENCODED), buffer recycling
+	 * is clocked by video_source_set_buffer_handler (uvc_stream_source_process).
+	 * Do NOT watch sink->fd for EVENT_WRITE (POLLOUT) here, because a V4L2
+	 * output device with buffer room is ALWAYS write-ready, which causes select()
+	 * to spin in an infinite busy-loop consuming 90%+ CPU on single-core Pis. */
 
 	return 0;
 

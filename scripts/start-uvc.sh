@@ -364,6 +364,8 @@ for item in data.get("algorithms", []):
     if name not in keep:
         continue
     cfg = item[name]
+    if name == "rpi.awb" and isinstance(cfg, dict):
+        cfg["bayes"] = 0
     if name == "rpi.agc" and isinstance(cfg, dict):
         for mode in cfg.get("exposure_modes", {}).values():
             if isinstance(mode, dict) and "shutter" in mode:
