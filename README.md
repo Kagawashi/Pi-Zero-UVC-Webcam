@@ -25,7 +25,7 @@ Includes **120–190 FPS custom kernel driver mod**, **hardware MJPEG GPU stream
   - Generates eye-tracking `libcamera` tuning (`/etc/picam/<sensor>_fast.json`: strips `alsc`, `geq`, `contrast`, `sharpen`, sets `awb bayes=0` and `agc` max shutter `9500 µs`) and Unicam buffer pipeline (`/etc/picam/rpi_pipeline.yaml`: `min_unicam_buffers=6`), plus hardware capture timestamps (`buf.timestamp`).
   - Built-in UVC presets for `192x192`, `320x240`, `400x400`, `640x480`, `800x600`, `1280x720@30/15`, and arbitrary custom resolutions.
 - **🔌 Optional USB Ethernet (`ENABLE_RNDIS`)**: Disabled by default (`ENABLE_RNDIS=0`) so `PupilDrvInst.exe` installs `libusbK` without Windows PnP hangs; can be enabled (`ENABLE_RNDIS=1`) when direct USB SSH is desired.
-- **🌐 Web Control Panel (:8080)**: On-device Flask web service displaying **CPU**, **estimated VideoCore IV ISP+M2M GPU Load**, **GPU Spatial Denoise & USB MaxPacket status**, live toggles (`spatial_denoise`, `analogue_gain`, `exposure_value`, flip, AWB, Fast-Crop), resolution presets (`192x192` included), camera role selection, and service management.
+- **Web Control Panel (:8080) & Bilingual UI (`TR` / `EN`)**: On-device Flask web service with instant Turkish/English language switching (`/api/language`), displaying **CPU**, **estimated VideoCore IV ISP+M2M GPU Load**, **GPU Spatial Denoise & USB MaxPacket status**, live controls (`spatial_denoise`, `analogue_gain`, `exposure_value`, flip, AWB, Fast-Crop), resolution presets (`192x192` included), camera role selection, and service management.
 - **🌍 Multi-Wi-Fi Network Roaming**: Pre-configure multiple Wi-Fi networks (home router, mobile hotspot, lab); Pi Zero auto-connects to whichever is in range.
 - **🛡️ Pupil Capture Windows Patch**:
   - Memory hotpatch for the notorious `uvc.dll` zero-division crash (`0xc0000094`).
@@ -162,7 +162,8 @@ http://pizero.local:8080
 - **Live Telemetry**: CPU temp & load, estimated VideoCore IV ISP+M2M GPU load (`gpu_load`), GPU Spatial Denoise & USB ISOC status (`usb_maxpacket`), camera & UVC node state.
 - **Per-Resolution Fast-Crop Switches**: Live interactive toggles for `192x192`, `320x240`, `400x400`, `640x480`, `800x600`, `1280x720` (all `false` Full FOV by default).
 - **Live Controls**: Horizontal/Vertical Flip, Auto Exposure, GPU Spatial Denoise (`spatial_denoise`), Analogue Gain (`1.0x–16.0x`), Manual Exposure (`exposure_value`), Brightness, Contrast, Saturation, Sharpness, AWB.
-- **REST API**: `/api/fast_crop`, `/api/config`, `/api/role`, `/api/sensor`, `/api/status`, `/api/service/<action>`, `/api/reboot`.
+- **Bilingual Interface (`TR` / `EN`)**: Instant Turkish/English switcher in the header (`localStorage` + persisted via `/api/language`).
+- **REST API**: `/api/fast_crop`, `/api/config`, `/api/language`, `/api/role`, `/api/sensor`, `/api/status`, `/api/service/<action>`, `/api/reboot`.
 - **Service Management**: Instant service restart and hardware status monitoring.
 
 ---

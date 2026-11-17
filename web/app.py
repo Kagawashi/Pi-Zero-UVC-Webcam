@@ -48,6 +48,7 @@ DEFAULT_CONFIG = {
     "analogue_gain": 8.0,   # 1.0-16.0 (manuel mod kazancı)
     "spatial_denoise": True, # VideoCore IV GPU Spatial Denoise (NoiseReductionModeFast)
     "awb_mode": "auto",     # auto, daylight, cloudy, tungsten, fluorescent
+    "language": "tr",       # tr, en
 }
 
 DEFAULT_ENV_CONFIG = {
@@ -488,6 +489,7 @@ def get_system_status() -> dict:
 
     # Fast-Crop (Yüksek FPS Kırpma) ayarları ve sysfs durumu
     cfg = load_config()
+    status["language"] = cfg.get("language", "tr") if cfg.get("language") in ("tr", "en") else "tr"
     status["fast_crop"] = cfg.get("fast_crop", DEFAULT_CONFIG["fast_crop"].copy())
     status["spatial_denoise"] = bool(cfg.get("spatial_denoise", True))
     status["auto_exposure"] = bool(cfg.get("auto_exposure", True))
@@ -669,11 +671,16 @@ def api_set_config():
     except (ValueError, TypeError):
         return jsonify({"status": "error", "message": "Sayısal parametreler geçerli sayı olmalıdır"}), 400
 
-    # AWB modu
+    # AWB modu ve arayüz dili
     if "awb_mode" in data:
         allowed = ("auto", "daylight", "cloudy", "tungsten", "fluorescent", "indoor")
         if data["awb_mode"] in allowed:
             config["awb_mode"] = data["awb_mode"]
+
+    if "language" in data:
+        lang_val = str(data["language"]).strip().lower()
+        if lang_val in ("tr", "en"):
+            config["language"] = lang_val
 
     # Fast-Crop sözlüğü
     if "fast_crop" in data and isinstance(data["fast_crop"], dict):
@@ -736,6 +743,27 @@ def api_fast_crop():
         "status": "ok",
         "fast_crop": config["fast_crop"],
     })
+
+
+@app.route("/api/language", methods=["GET", "POST"])
+def api_language():
+    """Web kontrol paneli arayüz dilini (tr/en) oku veya güncelle."""
+    config = load_config()
+    if request.method == "POST":
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or "language" not in data:
+            return jsonify({"status": "error", "message": "Geçersiz veya eksik 'language' alanı"}), 400
+        lang = str(data["language"]).strip().lower()
+        if lang not in ("tr", "en"):
+            return jsonify({"status": "error", "message": "Desteklenen diller: tr, en"}), 400
+        config["language"] = lang
+        save_config(config)
+        return jsonify({"status": "ok", "language": lang})
+
+    lang = config.get("language", "tr")
+    if lang not in ("tr", "en"):
+        lang = "tr"
+    return jsonify({"status": "ok", "language": lang})
 
 
 PRESET_RESOLUTIONS = {(192, 192), (320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)}

@@ -317,6 +317,7 @@ Web arayüzüne (`http://pizero.local:8080` veya `http://<pi-ip>:8080`) girdiği
 - **Sistem & Donanım İzleme:** CPU Sıcaklığı, CPU Kullanımı (`%`), **GPU Kullanımı (`VideoCore IV ISP+M2M ~Tahmini`)**, **Gürültü Azaltma & USB (`GPU SDN Aktif/Kapalı · 1024B ISOC`)**, Bellek, Disk, Uptime, Kamera Algılama, Pupil Rolü, Sensör ve Çözünürlük.
 - **Pupil Rolü & Çözünürlük/FPS Profili:** `eye0` / `eye1` / `world` / `generic`, sensör (`ov5647`, `imx219`, `ov9281`), yerleşik çözünürlükler (`192x192` dahil) ve Özel Çözünürlük. *(Hazır çözünürlükler Pupil Capture içinden yeniden başlatmasız seçilir; yalnızca Rol veya Özel Çözünürlük değişiminde güvenli reboot yapılır.)*
 - **Canlı Kamera Ayarları (`/api/config`):** Yatay/Dikey Çevirme, Otomatik Pozlama, **VideoCore IV GPU Spatial Denoise (`spatial_denoise`)**, **Analog Kazanç / Gain (`analogue_gain`: 1.0x–16.0x)**, Manuel Pozlama (`exposure_value`, 90 FPS için $\le 10000\text{ µs}$ önerilir), Parlaklık, Kontrast, Doygunluk, Keskinlik ve AWB.
+- **Türkçe / İngilizce Arayüz (`TR` | `EN`) & `/api/language`:** Üst çubuktaki `TR` / `EN` anahtarı ile tüm arayüz ve durum bildirimleri sayfa yenilenmeden anında Türkçe veya İngilizceye geçer; tercih tarayıcıda ve `/etc/picam/config.json` içinde kalıcı saklanır.
 - **Fast-Crop Switch'leri & REST API:**
   ```bash
   # Mevcut Fast-Crop durumunu JSON olarak okuma:

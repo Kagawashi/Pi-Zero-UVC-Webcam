@@ -280,6 +280,45 @@ class WebAppAndFastCropRegressionTests(unittest.TestCase):
         self.assertEqual(win_plugin, scr_plugin)
         self.assertIn("(192, 192)", win_plugin)
 
+    def test_web_ui_bilingual_tr_en_support(self) -> None:
+        client = self.app_mod.app.test_client()
+
+        # Default language
+        get_default = client.get("/api/language")
+        self.assertEqual(get_default.status_code, 200)
+        self.assertEqual(get_default.get_json()["language"], "tr")
+
+        # Update via /api/language
+        post_en = client.post("/api/language", json={"language": "en"})
+        self.assertEqual(post_en.status_code, 200)
+        self.assertEqual(post_en.get_json()["language"], "en")
+
+        status_en = client.get("/api/status").get_json()
+        self.assertEqual(status_en["language"], "en")
+
+        # Reject unsupported language
+        bad_lang = client.post("/api/language", json={"language": "de"})
+        self.assertEqual(bad_lang.status_code, 400)
+
+        # Update back via /api/config
+        post_cfg = client.post("/api/config", json={"language": "tr"})
+        self.assertEqual(post_cfg.status_code, 200)
+        self.assertEqual(post_cfg.get_json()["config"]["language"], "tr")
+
+        # Template contains switcher and every data-i18n key is defined in both tr and en
+        html = (REPO_ROOT / "web" / "templates" / "index.html").read_text(encoding="utf-8")
+        for token in ('id="langBtnTr"', 'id="langBtnEn"', "setLanguage(", "const I18N = {"):
+            self.assertIn(token, html)
+        i18n_block = html.split("const I18N = {", 1)[1].split("const GUIDE_HTML", 1)[0]
+        self.assertIn("tr: {", i18n_block)
+        self.assertIn("en: {", i18n_block)
+        tr_block, en_block = i18n_block.split("en: {", 1)
+        keys = set(re.findall(r'data-i18n(?:-html)?="([^"]+)"', html))
+        self.assertGreater(len(keys), 20)
+        for key in keys:
+            self.assertIn(f"{key}:", tr_block, f"Missing TR translation for {key}")
+            self.assertIn(f"{key}:", en_block, f"Missing EN translation for {key}")
+
 
 if __name__ == "__main__":
     unittest.main()

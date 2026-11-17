@@ -54,6 +54,43 @@
             font-size: 1.5rem;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .lang-switch {
+            display: inline-flex;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .lang-btn {
+            background: transparent;
+            color: var(--text2);
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .lang-btn:hover {
+            color: var(--text);
+        }
+
+        .lang-btn.active {
+            background: var(--accent);
+            color: white;
+        }
+
         .header-status {
             display: flex;
             align-items: center;
@@ -407,11 +444,17 @@
     <header>
         <h1>
             <span class="cam-icon">📷</span>
-            Pi Zero UVC Camera
+            <span>Pi Zero UVC Camera</span>
         </h1>
-        <div class="header-status">
-            <span class="status-dot {{ 'active' if status.uvc_active else 'inactive' }}" id="headerDot"></span>
-            <span id="headerStatus">UVC {{ 'Aktif' if status.uvc_active else 'Kapalı' }}</span>
+        <div class="header-right">
+            <div class="lang-switch" role="group" aria-label="Language">
+                <button type="button" class="lang-btn" id="langBtnTr" onclick="setLanguage('tr')">TR</button>
+                <button type="button" class="lang-btn" id="langBtnEn" onclick="setLanguage('en')">EN</button>
+            </div>
+            <div class="header-status">
+                <span class="status-dot {{ 'active' if status.uvc_active else 'inactive' }}" id="headerDot"></span>
+                <span id="headerStatus">UVC {{ 'Aktif' if status.uvc_active else 'Kapalı' }}</span>
+            </div>
         </div>
     </header>
 
@@ -421,66 +464,66 @@
         <!-- ============================================================= -->
         <section class="card">
             <div class="card-header">
-                📊 Sistem Durumu
+                <span data-i18n="card_status">📊 Sistem Durumu</span>
                 <span style="margin-left:auto; font-weight:400; font-size:0.8rem; color:var(--text2)">
-                    Son güncelleme: <span id="lastUpdate">şimdi</span>
+                    <span data-i18n="last_update_label">Son güncelleme:</span> <span id="lastUpdate">şimdi</span>
                 </span>
             </div>
             <div class="card-body">
                 <div class="status-grid">
                     <div class="stat-item">
-                        <div class="stat-label">CPU Sıcaklığı</div>
+                        <div class="stat-label" data-i18n="stat_cpu_temp">CPU Sıcaklığı</div>
                         <div class="stat-value" id="statTemp">{{ status.cpu_temp }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">CPU Kullanımı</div>
+                        <div class="stat-label" data-i18n="stat_cpu_load">CPU Kullanımı</div>
                         <div class="stat-value" id="statLoad">{{ status.cpu_load }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">GPU Kullanımı</div>
+                        <div class="stat-label" data-i18n="stat_gpu_load">GPU Kullanımı</div>
                         <div class="stat-value" id="statGpuLoad" style="color:var(--accent);">{{ status.gpu_load or '%0.0' }}</div>
                         <div id="statGpuStatus" style="font-size:0.72rem; color:var(--text2); margin-top:2px;">{{ status.gpu_status or 'VideoCore IV ISP+M2M' }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Gürültü Azaltma &amp; USB</div>
+                        <div class="stat-label" data-i18n="stat_pipeline">Gürültü Azaltma &amp; USB</div>
                         <div class="stat-value" id="statPipeline">
                             GPU SDN {{ 'Aktif' if status.spatial_denoise is not sameas false else 'Kapalı' }} · {{ status.usb_maxpacket or '1024' }}B ISOC
                         </div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Bellek</div>
+                        <div class="stat-label" data-i18n="stat_memory">Bellek</div>
                         <div class="stat-value" id="statMem">{{ status.memory }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Disk</div>
+                        <div class="stat-label" data-i18n="stat_disk">Disk</div>
                         <div class="stat-value" id="statDisk">{{ status.disk }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Uptime</div>
+                        <div class="stat-label" data-i18n="stat_uptime">Uptime</div>
                         <div class="stat-value" id="statUptime">{{ status.uptime }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">IP Adresi</div>
+                        <div class="stat-label" data-i18n="stat_ip">IP Adresi</div>
                         <div class="stat-value" id="statIP">{{ status.ip_addresses }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Kamera</div>
+                        <div class="stat-label" data-i18n="stat_camera">Kamera</div>
                         <div class="stat-value" id="statCam">{{ status.camera }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">UVC Cihazı</div>
+                        <div class="stat-label" data-i18n="stat_uvc">UVC Cihazı</div>
                         <div class="stat-value" id="statUVC">{{ status.uvc_device }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Pupil Rolü</div>
+                        <div class="stat-label" data-i18n="stat_role">Pupil Rolü</div>
                         <div class="stat-value" id="statRole" style="color:var(--accent);">{{ status.role_title or status.role }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Sensör Profili</div>
+                        <div class="stat-label" data-i18n="stat_sensor">Sensör Profili</div>
                         <div class="stat-value" id="statSensor">{{ status.sensor_name or status.sensor }}</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-label">Çözünürlük & FPS</div>
+                        <div class="stat-label" data-i18n="stat_resolution">Çözünürlük &amp; FPS</div>
                         <div class="stat-value" id="statResolution">{{ status.resolution }}</div>
                     </div>
                 </div>
@@ -491,23 +534,23 @@
         <!-- Pupil Capture & Sensör Yapılandırması -->
         <!-- ============================================================= -->
         <section class="card">
-            <div class="card-header">🎯 Pupil Capture & Sensör Yapılandırması</div>
+            <div class="card-header" data-i18n="card_pupil_sensor">🎯 Pupil Capture &amp; Sensör Yapılandırması</div>
             <div class="card-body">
                 <div class="form-grid">
                     <!-- Kamera Rolü -->
                     <div class="form-group">
-                        <label for="cameraRole">Pupil Capture Kamera Rolü</label>
+                        <label for="cameraRole" data-i18n="label_camera_role">Pupil Capture Kamera Rolü</label>
                         <select id="cameraRole" onchange="onRoleChange(this.value)">
-                            <option value="eye0" {% if (env and env.ROLE == 'eye0') or (status and status.role == 'eye0') %}selected{% endif %}>
+                            <option value="eye0" data-i18n="role_eye0" {% if (env and env.ROLE == 'eye0') or (status and status.role == 'eye0') %}selected{% endif %}>
                                 Pupil Cam1 ID0 (eye0) — Sağ Göz Kamerası
                             </option>
-                            <option value="eye1" {% if (env and env.ROLE == 'eye1') or (status and status.role == 'eye1') %}selected{% endif %}>
+                            <option value="eye1" data-i18n="role_eye1" {% if (env and env.ROLE == 'eye1') or (status and status.role == 'eye1') %}selected{% endif %}>
                                 Pupil Cam1 ID1 (eye1) — Sol Göz Kamerası
                             </option>
-                            <option value="world" {% if (env and env.ROLE == 'world') or (status and status.role == 'world') %}selected{% endif %}>
+                            <option value="world" data-i18n="role_world" {% if (env and env.ROLE == 'world') or (status and status.role == 'world') %}selected{% endif %}>
                                 Pupil Cam1 ID2 (world) — Dünya / Sahne Kamerası
                             </option>
-                            <option value="generic" {% if (env and env.ROLE == 'generic') or (status and status.role == 'generic') %}selected{% endif %}>
+                            <option value="generic" data-i18n="role_generic" {% if (env and env.ROLE == 'generic') or (status and status.role == 'generic') %}selected{% endif %}>
                                 Pi Zero UVC Camera (generic) — Standart UVC
                             </option>
                         </select>
@@ -515,7 +558,7 @@
                             <span id="roleDetails">Pupil Capture otomatik olarak ID0/ID1 göz kameralarını tanır.</span>
                         </div>
                         <div style="margin-top: 10px;">
-                            <button class="btn btn-primary" onclick="applyRole()" id="btnSaveRole">
+                            <button class="btn btn-primary" onclick="applyRole()" id="btnSaveRole" data-i18n="btn_save_role">
                                 💾 Rolü Kaydet ve Uygula
                             </button>
                         </div>
@@ -523,7 +566,7 @@
 
                     <!-- Sensör Profili & Çözünürlük -->
                     <div class="form-group">
-                        <label for="sensorProfile">CSI Kamera Sensör Profili</label>
+                        <label for="sensorProfile" data-i18n="label_sensor_profile">CSI Kamera Sensör Profili</label>
                         <select id="sensorProfile" onchange="onSensorChange(this.value)">
                             <option value="ov5647" {% if (env and env.SENSOR == 'ov5647') or (status and status.sensor == 'ov5647') %}selected{% endif %}>
                                 OmniVision OV5647 (Pi Cam v1.3 - 90fps @ VGA)
@@ -543,25 +586,25 @@
 
                         <div style="display: flex; gap: 12px; margin-top: 10px; min-width: 0; flex-wrap: wrap;">
                             <div style="flex: 1 1 180px; min-width: 0;">
-                                <label for="sensorFps">Hedef FPS</label>
+                                <label for="sensorFps" data-i18n="label_target_fps">Hedef FPS</label>
                                 <select id="sensorFps">
-                                    <option value="90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS (Önerilen Göz Takibi)</option>
-                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS (Yüksek Hız - 192p/240p/OV9281)</option>
+                                    <option value="90" data-i18n="fps_90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS (Önerilen Göz Takibi)</option>
+                                    <option value="120" data-i18n="fps_120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS (Yüksek Hız - 192p/240p/OV9281)</option>
                                     <option value="60" {% if (env and env.FPS == '60') or (status and status.fps == '60') %}selected{% endif %}>60 FPS</option>
                                     <option value="30" {% if (env and env.FPS == '30') or (status and status.fps == '30') %}selected{% endif %}>30 FPS</option>
                                     <option value="15" {% if (env and env.FPS == '15') or (status and status.fps == '15') %}selected{% endif %}>15 FPS</option>
                                 </select>
                             </div>
                             <div style="flex: 1.4 1 240px; min-width: 0;">
-                                <label for="sensorResolution">Çözünürlük</label>
+                                <label for="sensorResolution" data-i18n="label_resolution">Çözünürlük</label>
                                 <select id="sensorResolution" onchange="onResolutionChange(this.value)">
-                                    <option value="192x192" {% if cur_res == '192x192' %}selected{% endif %}>192x192 (192p / Pupil Göz Takibi / En Yüksek FPS)</option>
-                                    <option value="320x240" {% if cur_res == '320x240' %}selected{% endif %}>320x240 (240p / Hızlı Göz Takibi / Düşük Bant Genişliği)</option>
-                                    <option value="400x400" {% if cur_res == '400x400' %}selected{% endif %}>400x400 (400p / Kare Göz Takibi)</option>
-                                    <option value="640x480" {% if cur_res == '640x480' %}selected{% endif %}>640x480 (480p / VGA Standart)</option>
-                                    <option value="800x600" {% if cur_res == '800x600' %}selected{% endif %}>800x600 (600p / SVGA)</option>
-                                    <option value="1280x720" {% if cur_res == '1280x720' %}selected{% endif %}>1280x720 (720p / HD Dünya Sahnesi)</option>
-                                    <option value="custom" {% if not is_preset %}selected{% endif %}>⚙️ Özel Çözünürlük (Kullanıcı Tanımlı)...</option>
+                                    <option value="192x192" data-i18n="res_192p" {% if cur_res == '192x192' %}selected{% endif %}>192x192 (192p / Pupil Göz Takibi / En Yüksek FPS)</option>
+                                    <option value="320x240" data-i18n="res_240p" {% if cur_res == '320x240' %}selected{% endif %}>320x240 (240p / Hızlı Göz Takibi / Düşük Bant Genişliği)</option>
+                                    <option value="400x400" data-i18n="res_400p" {% if cur_res == '400x400' %}selected{% endif %}>400x400 (400p / Kare Göz Takibi)</option>
+                                    <option value="640x480" data-i18n="res_480p" {% if cur_res == '640x480' %}selected{% endif %}>640x480 (480p / VGA Standart)</option>
+                                    <option value="800x600" data-i18n="res_600p" {% if cur_res == '800x600' %}selected{% endif %}>800x600 (600p / SVGA)</option>
+                                    <option value="1280x720" data-i18n="res_720p" {% if cur_res == '1280x720' %}selected{% endif %}>1280x720 (720p / HD Dünya Sahnesi)</option>
+                                    <option value="custom" data-i18n="res_custom" {% if not is_preset %}selected{% endif %}>⚙️ Özel Çözünürlük (Kullanıcı Tanımlı)...</option>
                                 </select>
                             </div>
                         </div>
@@ -569,27 +612,27 @@
                         <!-- Özel Çözünürlük Giriş Alanları -->
                         <div id="customResolutionInputs" style="display: {{ 'flex' if not is_preset else 'none' }}; gap: 12px; margin-top: 10px; min-width: 0;">
                             <div style="flex: 1; min-width: 0;">
-                                <label for="customWidth">Genişlik (Width - px)</label>
-                                <input type="number" id="customWidth" min="160" max="1920" step="2" value="{{ cur_w }}" placeholder="Örn: 320">
+                                <label for="customWidth" data-i18n="label_custom_width">Genişlik (Width - px)</label>
+                                <input type="number" id="customWidth" min="160" max="1920" step="2" value="{{ cur_w }}" placeholder="320">
                             </div>
                             <div style="flex: 1; min-width: 0;">
-                                <label for="customHeight">Yükseklik (Height - px)</label>
-                                <input type="number" id="customHeight" min="120" max="1080" step="2" value="{{ cur_h }}" placeholder="Örn: 240">
+                                <label for="customHeight" data-i18n="label_custom_height">Yükseklik (Height - px)</label>
+                                <input type="number" id="customHeight" min="120" max="1080" step="2" value="{{ cur_h }}" placeholder="240">
                             </div>
                         </div>
-                        <div id="customResHint" class="info-box" style="margin-top: 8px; font-size: 0.82rem; display: {{ 'block' if not is_preset else 'none' }}; word-break: break-word;">
+                        <div id="customResHint" class="info-box" data-i18n-html="custom_res_hint" style="margin-top: 8px; font-size: 0.82rem; display: {{ 'block' if not is_preset else 'none' }}; word-break: break-word;">
                             💡 <strong>Özel Çözünürlük İpucu:</strong> Çözünürlükler çift sayı olmalıdır (160x120 - 1920x1080). VideoCore IV GPU donanım JPEG sıkıştırması + Spatial Denoise ile <strong>192x192</strong> (~69 FPS), <strong>320x240</strong> (~68 FPS) ve <strong>640x480</strong> (~58–60 FPS) çözünürlüklerde bozuk kare olmadan akıcı göz/sahne takibi elde edilir.
                         </div>
 
                         <div style="margin-top: 12px;">
-                            <button class="btn btn-primary" onclick="applySensor()" id="btnSaveSensor">
+                            <button class="btn btn-primary" onclick="applySensor()" id="btnSaveSensor" data-i18n="btn_save_sensor">
                                 📷 Sensörü Kaydet ve Uygula
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="info-box" style="margin-top: 16px;">
+                <div class="info-box" style="margin-top: 16px;" data-i18n-html="info_preset_vs_reboot">
                     💡 <strong>Hazır Çözünürlük vs Rol/Özel Çözünürlük:</strong> Hazır çözünürlükler (<code>192x192</code> – <code>1280x720</code>) USB descriptor'larında yerleşik olduğundan <strong>Pupil Capture içinden yeniden başlatmasız</strong> anında seçilebilir. Yalnızca <strong>Kamera Rolü</strong> (<code>eye0/eye1/world/generic</code>) veya <strong>Özel Çözünürlük</strong> değiştirildiğinde Pi güvenli yeniden başlatma (~45 sn) yapar.
                 </div>
             </div>
@@ -599,23 +642,23 @@
         <!-- Servis Kontrol -->
         <!-- ============================================================= -->
         <section class="card">
-            <div class="card-header">⚙️ UVC Servis Yönetimi</div>
+            <div class="card-header" data-i18n="card_service">⚙️ UVC Servis Yönetimi</div>
             <div class="card-body">
                 <div class="btn-group" style="margin-bottom: 16px;">
-                    <button class="btn btn-success" onclick="serviceAction('start')" id="btnStart">
+                    <button class="btn btn-success" onclick="serviceAction('start')" id="btnStart" data-i18n="btn_start">
                         ▶ Başlat
                     </button>
-                    <button class="btn btn-danger" onclick="serviceAction('stop')" id="btnStop">
+                    <button class="btn btn-danger" onclick="serviceAction('stop')" id="btnStop" data-i18n="btn_stop">
                         ⏹ Durdur
                     </button>
-                    <button class="btn btn-warning" onclick="serviceAction('restart')" id="btnRestart">
+                    <button class="btn btn-warning" onclick="serviceAction('restart')" id="btnRestart" data-i18n="btn_restart">
                         🔄 Yeniden Başlat
                     </button>
-                    <button class="btn btn-outline" onclick="rebootSystem()" id="btnReboot">
+                    <button class="btn btn-outline" onclick="rebootSystem()" id="btnReboot" data-i18n="btn_reboot">
                         ⏻ Sistemi Yeniden Başlat
                     </button>
                 </div>
-                <div class="info-box">
+                <div class="info-box" data-i18n-html="info_service">
                     💡 <strong>UVC servisi</strong> başlatıldığında, Pi Zero bilgisayarınızda
                     standart bir USB webcam olarak görünür. Windows Kamera uygulamasını veya
                     OBS Studio'yu açıp "Pi Zero UVC Camera" kaynağını seçebilirsiniz.
@@ -627,14 +670,14 @@
         <!-- Kamera Ayarları -->
         <!-- ============================================================= -->
         <section class="card">
-            <div class="card-header">🎛️ Kamera Ayarları</div>
+            <div class="card-header" data-i18n="card_camera_settings">🎛️ Kamera Ayarları</div>
             <div class="card-body">
                 <!-- Toggle Ayarları -->
                 <div style="margin-bottom: 20px;">
                     <div class="toggle-row">
                         <div>
-                            <div class="toggle-label">Yatay Çevirme (H-Flip)</div>
-                            <div class="toggle-sub">Görüntüyü yatay eksende çevir</div>
+                            <div class="toggle-label" data-i18n="label_hflip">Yatay Çevirme (H-Flip)</div>
+                            <div class="toggle-sub" data-i18n="sub_hflip">Görüntüyü yatay eksende çevir</div>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="hflip" {{ 'checked' if config.hflip }}>
@@ -643,8 +686,8 @@
                     </div>
                     <div class="toggle-row">
                         <div>
-                            <div class="toggle-label">Dikey Çevirme (V-Flip)</div>
-                            <div class="toggle-sub">Görüntüyü dikey eksende çevir (kamera ters monte edilmişse)</div>
+                            <div class="toggle-label" data-i18n="label_vflip">Dikey Çevirme (V-Flip)</div>
+                            <div class="toggle-sub" data-i18n="sub_vflip">Görüntüyü dikey eksende çevir (kamera ters monte edilmişse)</div>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="vflip" {{ 'checked' if config.vflip }}>
@@ -653,8 +696,8 @@
                     </div>
                     <div class="toggle-row">
                         <div>
-                            <div class="toggle-label">Otomatik Pozlama</div>
-                            <div class="toggle-sub">Kapatıldığında manuel pozlama değeri kullanılır</div>
+                            <div class="toggle-label" data-i18n="label_ae">Otomatik Pozlama</div>
+                            <div class="toggle-sub" data-i18n="sub_ae">Kapatıldığında manuel pozlama değeri kullanılır</div>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="auto_exposure" {{ 'checked' if config.auto_exposure }}>
@@ -663,8 +706,8 @@
                     </div>
                     <div class="toggle-row">
                         <div>
-                            <div class="toggle-label">VideoCore IV GPU Spatial Denoise</div>
-                            <div class="toggle-sub">Kırmızı/mavi/yeşil sensör karıncalanmasını (chroma noise) GPU donanımında temizler</div>
+                            <div class="toggle-label" data-i18n="label_sdn">VideoCore IV GPU Spatial Denoise</div>
+                            <div class="toggle-sub" data-i18n="sub_sdn">Kırmızı/mavi/yeşil sensör karıncalanmasını (chroma noise) GPU donanımında temizler</div>
                         </div>
                         <label class="switch">
                             <input type="checkbox" id="spatial_denoise" {{ 'checked' if config.get('spatial_denoise', true) }}>
@@ -676,7 +719,7 @@
                 <!-- Slider Ayarları -->
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="brightness">Parlaklık</label>
+                        <label for="brightness" data-i18n="label_brightness">Parlaklık</label>
                         <div class="range-row">
                             <input type="range" id="brightness" min="0" max="100"
                                 value="{{ config.brightness }}" oninput="updateRangeLabel(this)">
@@ -684,7 +727,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="contrast">Kontrast</label>
+                        <label for="contrast" data-i18n="label_contrast">Kontrast</label>
                         <div class="range-row">
                             <input type="range" id="contrast" min="0" max="100"
                                 value="{{ config.contrast }}" oninput="updateRangeLabel(this)">
@@ -692,7 +735,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="saturation">Doygunluk</label>
+                        <label for="saturation" data-i18n="label_saturation">Doygunluk</label>
                         <div class="range-row">
                             <input type="range" id="saturation" min="0" max="100"
                                 value="{{ config.saturation }}" oninput="updateRangeLabel(this)">
@@ -700,7 +743,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="sharpness">Keskinlik</label>
+                        <label for="sharpness" data-i18n="label_sharpness">Keskinlik</label>
                         <div class="range-row">
                             <input type="range" id="sharpness" min="0" max="100"
                                 value="{{ config.sharpness }}" oninput="updateRangeLabel(this)">
@@ -708,46 +751,46 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="awb_mode">Beyaz Dengesi</label>
+                        <label for="awb_mode" data-i18n="label_awb">Beyaz Dengesi</label>
                         <select id="awb_mode">
-                            <option value="auto" {{ 'selected' if config.awb_mode == 'auto' }}>Otomatik</option>
-                            <option value="daylight" {{ 'selected' if config.awb_mode == 'daylight' }}>Gün Işığı</option>
-                            <option value="cloudy" {{ 'selected' if config.awb_mode == 'cloudy' }}>Bulutlu</option>
-                            <option value="tungsten" {{ 'selected' if config.awb_mode == 'tungsten' }}>Tungsten</option>
-                            <option value="fluorescent" {{ 'selected' if config.awb_mode == 'fluorescent' }}>Floresan</option>
-                            <option value="indoor" {{ 'selected' if config.awb_mode == 'indoor' }}>İç Mekan</option>
+                            <option value="auto" data-i18n="awb_auto" {{ 'selected' if config.awb_mode == 'auto' }}>Otomatik</option>
+                            <option value="daylight" data-i18n="awb_daylight" {{ 'selected' if config.awb_mode == 'daylight' }}>Gün Işığı</option>
+                            <option value="cloudy" data-i18n="awb_cloudy" {{ 'selected' if config.awb_mode == 'cloudy' }}>Bulutlu</option>
+                            <option value="tungsten" data-i18n="awb_tungsten" {{ 'selected' if config.awb_mode == 'tungsten' }}>Tungsten</option>
+                            <option value="fluorescent" data-i18n="awb_fluorescent" {{ 'selected' if config.awb_mode == 'fluorescent' }}>Floresan</option>
+                            <option value="indoor" data-i18n="awb_indoor" {{ 'selected' if config.awb_mode == 'indoor' }}>İç Mekan</option>
                         </select>
                     </div>
                     <div class="form-group" id="exposureGroup">
-                        <label for="exposure_value">Manuel Pozlama (µs)</label>
+                        <label for="exposure_value" data-i18n="label_exposure">Manuel Pozlama (µs)</label>
                         <div class="range-row">
                             <input type="range" id="exposure_value" min="100" max="50000" step="100"
                                 value="{{ config.exposure_value }}" oninput="updateRangeLabel(this)">
                             <span class="range-value">{{ config.exposure_value }}</span>
                         </div>
-                        <div class="toggle-sub">90 FPS akış için &le; 10000 µs (örn. 3000–8000 µs) önerilir; kare süresini aşan değerler libcamera tarafından otomatik kırpılır.</div>
+                        <div class="toggle-sub" data-i18n="sub_exposure">90 FPS akış için &le; 10000 µs (örn. 3000–8000 µs) önerilir; kare süresini aşan değerler libcamera tarafından otomatik kırpılır.</div>
                     </div>
                     <div class="form-group" id="gainGroup">
-                        <label for="analogue_gain">Analog Kazanç / Gain (1.0x–16.0x)</label>
+                        <label for="analogue_gain" data-i18n="label_gain">Analog Kazanç / Gain (1.0x–16.0x)</label>
                         <div class="range-row">
                             <input type="range" id="analogue_gain" min="1.0" max="16.0" step="0.5"
                                 value="{{ config.get('analogue_gain', 8.0) }}" oninput="updateRangeLabel(this)">
                             <span class="range-value">{{ config.get('analogue_gain', 8.0) }}</span>
                         </div>
-                        <div class="toggle-sub">Otomatik Pozlama kapatıldığında sensör analog kazancı olarak canlı uygulanır.</div>
+                        <div class="toggle-sub" data-i18n="sub_gain">Otomatik Pozlama kapatıldığında sensör analog kazancı olarak canlı uygulanır.</div>
                     </div>
                 </div>
 
                 <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center;">
-                    <button class="btn btn-primary" onclick="saveSettings()" id="btnSave">
+                    <button class="btn btn-primary" onclick="saveSettings()" id="btnSave" data-i18n="btn_save">
                         💾 Ayarları Kaydet ve Uygula
                     </button>
-                    <button class="btn btn-outline" onclick="resetDefaults()">
+                    <button class="btn btn-outline" onclick="resetDefaults()" id="btnReset" data-i18n="btn_reset">
                         ↺ Varsayılana Sıfırla
                     </button>
                 </div>
 
-                <div class="info-box" style="margin-top: 16px;">
+                <div class="info-box" style="margin-top: 16px;" data-i18n-html="info_live_control">
                     ✨ <strong>Canlı Kontrol:</strong> Pozlama, parlaklık, kontrast ve ayna ayarları kamera akışı ve USB bağlantısı kesilmeden anında canlı olarak uygulanır.
                 </div>
             </div>
@@ -758,13 +801,13 @@
         <!-- ============================================================= -->
         <section class="card">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>⚡ Çözünürlük Bazlı Hızlı Kırpma & Görüş Alanı (Fast-Crop)</span>
+                <span data-i18n="card_fast_crop">⚡ Çözünürlük Bazlı Hızlı Kırpma &amp; Görüş Alanı (Fast-Crop)</span>
                 <span id="fastCropSysfsBadge" style="font-size: 0.8rem; font-weight: normal; padding: 4px 10px; border-radius: 6px; background: rgba(52, 211, 153, 0.15); color: var(--green);">
                     {% if status and status.fast_crop_sysfs %}⚡ 191 FPS Kırpma Aktif{% else %}🔍 Tam Görüş Alanı{% endif %}
                 </span>
             </div>
             <div class="card-body">
-                <p style="font-size: 0.875rem; color: var(--text2); margin-bottom: 16px;">
+                <p style="font-size: 0.875rem; color: var(--text2); margin-bottom: 16px;" data-i18n-html="fast_crop_intro">
                     Pupil Capture veya OBS'te çözünürlüğü seçtiğinizde kameranın hangi donanım modunda çalışacağını buradan belirleyin. <strong>Hızlı Kırpma</strong> açıkken sensörün merkez alanı okunur ve <strong>120-190 FPS</strong> hızına ulaşılır. Kapalıyken tüm sensör alanı (Full FOV) binned olarak okunur.
                 </p>
 
@@ -772,10 +815,10 @@
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                         <thead>
                             <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text2);">
-                                <th style="padding: 10px 12px;">Çözünürlük</th>
-                                <th style="padding: 10px 12px;">Kullanım Amacı</th>
-                                <th style="padding: 10px 12px;">Sensör Modu</th>
-                                <th style="padding: 10px 12px; text-align: right;">Hızlı Kırpma (High-FPS)</th>
+                                <th style="padding: 10px 12px;" data-i18n="th_resolution">Çözünürlük</th>
+                                <th style="padding: 10px 12px;" data-i18n="th_purpose">Kullanım Amacı</th>
+                                <th style="padding: 10px 12px;" data-i18n="th_sensor_mode">Sensör Modu</th>
+                                <th style="padding: 10px 12px; text-align: right;" data-i18n="th_fast_crop">Hızlı Kırpma (High-FPS)</th>
                             </tr>
                         </thead>
                         <tbody id="fastCropTableBody">
@@ -784,7 +827,7 @@
                     </table>
                 </div>
 
-                <div class="info-box" style="margin-top: 16px;">
+                <div class="info-box" style="margin-top: 16px;" data-i18n-html="info_fast_crop">
                     💡 <strong>Not:</strong> OV5647 sensörde 192x192 / 320x240 çözünürlüklerinde şeritlenmeyi önlemek için <strong>Hızlı Kırpma varsayılan olarak kapalıdır</strong> (Full FOV + donanımsal VideoCore IV ISP ölçekleme kullanılır). Değişiklik yaptığınızda ayar anında uygulanır; servisi yeniden başlatmanız gerekmez.
                 </div>
             </div>
@@ -794,9 +837,9 @@
         <!-- Kullanım Bilgisi -->
         <!-- ============================================================= -->
         <section class="card">
-            <div class="card-header">📖 Kullanım Kılavuzu</div>
+            <div class="card-header" data-i18n="card_guide">📖 Kullanım Kılavuzu</div>
             <div class="card-body">
-                <div class="info-box" style="border-left-color: var(--green);">
+                <div class="info-box" style="border-left-color: var(--green);" id="guideBox">
                     <strong>🔌 Bağlantı:</strong><br>
                     Pi Zero'nun ortadaki <code>USB</code> (Data) portunu (güç portu <code>PWR IN</code> DEĞİL) bilgisayarınıza veri kablosuyla bağlayın.<br><br>
 
@@ -826,6 +869,384 @@
 
     <script>
         // =====================================================================
+        // Çoklu Dil Desteği (TR / EN)
+        // =====================================================================
+
+        const DEVICE_HOSTNAME = {{ (status.hostname if status and status.hostname else 'pizero') | tojson }};
+        const SERVER_DEFAULT_LANG = {{ (config.get('language', 'tr') if config else 'tr') | tojson }};
+        let lastStatusData = {{ (status if status else {}) | tojson }};
+        let hasLiveTimestamp = false;
+        let currentLang = (() => {
+            try {
+                const stored = localStorage.getItem('picam_lang');
+                if (stored === 'tr' || stored === 'en') return stored;
+            } catch (e) {}
+            return (SERVER_DEFAULT_LANG === 'en') ? 'en' : 'tr';
+        })();
+
+        const I18N = {
+            tr: {
+                page_title: 'Pi Zero UVC Camera',
+                card_status: '📊 Sistem Durumu',
+                last_update_label: 'Son güncelleme:',
+                just_now: 'şimdi',
+                stat_cpu_temp: 'CPU Sıcaklığı',
+                stat_cpu_load: 'CPU Kullanımı',
+                stat_gpu_load: 'GPU Kullanımı',
+                stat_pipeline: 'Gürültü Azaltma & USB',
+                stat_memory: 'Bellek',
+                stat_disk: 'Disk',
+                stat_uptime: 'Uptime',
+                stat_ip: 'IP Adresi',
+                stat_camera: 'Kamera',
+                stat_uvc: 'UVC Cihazı',
+                stat_role: 'Pupil Rolü',
+                stat_sensor: 'Sensör Profili',
+                stat_resolution: 'Çözünürlük & FPS',
+                card_pupil_sensor: '🎯 Pupil Capture & Sensör Yapılandırması',
+                label_camera_role: 'Pupil Capture Kamera Rolü',
+                role_eye0: 'Pupil Cam1 ID0 (eye0) — Sağ Göz Kamerası',
+                role_eye1: 'Pupil Cam1 ID1 (eye1) — Sol Göz Kamerası',
+                role_world: 'Pupil Cam1 ID2 (world) — Dünya / Sahne Kamerası',
+                role_generic: 'Pi Zero UVC Camera (generic) — Standart UVC',
+                btn_save_role: '💾 Rolü Kaydet ve Uygula',
+                label_sensor_profile: 'CSI Kamera Sensör Profili',
+                label_target_fps: 'Hedef FPS',
+                fps_90: '90 FPS (Önerilen Göz Takibi)',
+                fps_120: '120 FPS (Yüksek Hız - 192p/240p/OV9281)',
+                label_resolution: 'Çözünürlük',
+                res_192p: '192x192 (192p / Pupil Göz Takibi / En Yüksek FPS)',
+                res_240p: '320x240 (240p / Hızlı Göz Takibi / Düşük Bant Genişliği)',
+                res_400p: '400x400 (400p / Kare Göz Takibi)',
+                res_480p: '640x480 (480p / VGA Standart)',
+                res_600p: '800x600 (600p / SVGA)',
+                res_720p: '1280x720 (720p / HD Dünya Sahnesi)',
+                res_custom: '⚙️ Özel Çözünürlük (Kullanıcı Tanımlı)...',
+                label_custom_width: 'Genişlik (Width - px)',
+                label_custom_height: 'Yükseklik (Height - px)',
+                custom_res_hint: '💡 <strong>Özel Çözünürlük İpucu:</strong> Çözünürlükler çift sayı olmalıdır (160x120 - 1920x1080). VideoCore IV GPU donanım JPEG sıkıştırması + Spatial Denoise ile <strong>192x192</strong> (~69 FPS), <strong>320x240</strong> (~68 FPS) ve <strong>640x480</strong> (~58–60 FPS) çözünürlüklerde bozuk kare olmadan akıcı göz/sahne takibi elde edilir.',
+                btn_save_sensor: '📷 Sensörü Kaydet ve Uygula',
+                info_preset_vs_reboot: '💡 <strong>Hazır Çözünürlük vs Rol/Özel Çözünürlük:</strong> Hazır çözünürlükler (<code>192x192</code> – <code>1280x720</code>) USB descriptor\'larında yerleşik olduğundan <strong>Pupil Capture içinden yeniden başlatmasız</strong> anında seçilebilir. Yalnızca <strong>Kamera Rolü</strong> (<code>eye0/eye1/world/generic</code>) veya <strong>Özel Çözünürlük</strong> değiştirildiğinde Pi güvenli yeniden başlatma (~45 sn) yapar.',
+                card_service: '⚙️ UVC Servis Yönetimi',
+                btn_start: '▶ Başlat',
+                btn_stop: '⏹ Durdur',
+                btn_restart: '🔄 Yeniden Başlat',
+                btn_reboot: '⏻ Sistemi Yeniden Başlat',
+                info_service: '💡 <strong>UVC servisi</strong> başlatıldığında, Pi Zero bilgisayarınızda standart bir USB webcam olarak görünür. Windows Kamera uygulamasını veya OBS Studio\'yu açıp "Pi Zero UVC Camera" kaynağını seçebilirsiniz.',
+                card_camera_settings: '🎛️ Kamera Ayarları',
+                label_hflip: 'Yatay Çevirme (H-Flip)',
+                sub_hflip: 'Görüntüyü yatay eksende çevir',
+                label_vflip: 'Dikey Çevirme (V-Flip)',
+                sub_vflip: 'Görüntüyü dikey eksende çevir (kamera ters monte edilmişse)',
+                label_ae: 'Otomatik Pozlama',
+                sub_ae: 'Kapatıldığında manuel pozlama değeri kullanılır',
+                label_sdn: 'VideoCore IV GPU Spatial Denoise',
+                sub_sdn: 'Kırmızı/mavi/yeşil sensör karıncalanmasını (chroma noise) GPU donanımında temizler',
+                label_brightness: 'Parlaklık',
+                label_contrast: 'Kontrast',
+                label_saturation: 'Doygunluk',
+                label_sharpness: 'Keskinlik',
+                label_awb: 'Beyaz Dengesi',
+                awb_auto: 'Otomatik',
+                awb_daylight: 'Gün Işığı',
+                awb_cloudy: 'Bulutlu',
+                awb_tungsten: 'Tungsten',
+                awb_fluorescent: 'Floresan',
+                awb_indoor: 'İç Mekan',
+                label_exposure: 'Manuel Pozlama (µs)',
+                sub_exposure: '90 FPS akış için ≤ 10000 µs (örn. 3000–8000 µs) önerilir; kare süresini aşan değerler libcamera tarafından otomatik kırpılır.',
+                label_gain: 'Analog Kazanç / Gain (1.0x–16.0x)',
+                sub_gain: 'Otomatik Pozlama kapatıldığında sensör analog kazancı olarak canlı uygulanır.',
+                btn_save: '💾 Ayarları Kaydet ve Uygula',
+                btn_reset: '↺ Varsayılana Sıfırla',
+                info_live_control: '✨ <strong>Canlı Kontrol:</strong> Pozlama, kazanç, gürültü azaltma ve ayna ayarları kamera akışı ve USB bağlantısı kesilmeden anında canlı olarak uygulanır.',
+                card_fast_crop: '⚡ Çözünürlük Bazlı Hızlı Kırpma & Görüş Alanı (Fast-Crop)',
+                fast_crop_intro: 'Pupil Capture veya OBS\'te çözünürlüğü seçtiğinizde kameranın hangi donanım modunda çalışacağını buradan belirleyin. <strong>Hızlı Kırpma</strong> açıkken sensörün merkez alanı okunur ve <strong>120-190 FPS</strong> hızına ulaşılır. Kapalıyken tüm sensör alanı (Full FOV) binned olarak okunur.',
+                th_resolution: 'Çözünürlük',
+                th_purpose: 'Kullanım Amacı',
+                th_sensor_mode: 'Sensör Modu',
+                th_fast_crop: 'Hızlı Kırpma (High-FPS)',
+                info_fast_crop: '💡 <strong>Not:</strong> OV5647 sensörde 192x192 / 320x240 çözünürlüklerinde şeritlenmeyi önlemek için <strong>Hızlı Kırpma varsayılan olarak kapalıdır</strong> (Full FOV + donanımsal VideoCore IV ISP ölçekleme kullanılır). Değişiklik yaptığınızda ayar anında uygulanır; servisi yeniden başlatmanız gerekmez.',
+                card_guide: '📖 Kullanım Kılavuzu',
+                saving: 'Kaydediliyor...',
+                conn_error: 'Bağlantı hatası: ',
+                settings_saved: '✓ Ayarlar kaydedildi',
+                save_failed: '✗ Kaydetme başarısız',
+                defaults_loaded: 'Varsayılan değerler yüklendi — Kaydetmeyi unutmayın',
+                svc_starting: 'Başlatılıyor',
+                svc_stopping: 'Durduruluyor',
+                svc_restarting: 'Yeniden başlatılıyor',
+                svc_started: 'başlatıldı',
+                svc_stopped: 'durduruldu',
+                svc_restarted: 'yeniden başlatıldı',
+                svc_success_prefix: '✓ Servis ',
+                svc_failed: '✗ İşlem başarısız: ',
+                unknown_error: 'bilinmeyen hata',
+                reboot_confirm: 'Sistem yeniden başlatılacak. Emin misiniz?',
+                rebooting: 'Sistem yeniden başlatılıyor...',
+                err_invalid_res: 'Lütfen geçerli genişlik ve yükseklik girin',
+                err_even_res: 'Çözünürlük değerleri çift sayı (even) olmalıdır',
+                err_range_res: 'Çözünürlük 160x120 ile 1920x1080 arasında olmalıdır',
+                sensor_failed: '✗ Sensör güncelleme başarısız: ',
+                fast_crop_toast_crop: '⚡ Hızlı Kırpma (190 FPS)',
+                fast_crop_toast_full: '🔍 Tam Görüş Alanı (Full FOV)',
+                fast_crop_mode_suffix: ' modu: ',
+                fast_crop_failed: '✗ Ayar kaydedilemedi: ',
+                badge_crop_active: '⚡ 191 FPS Kırpma Aktif',
+                badge_fov_active: '🔍 Tam Görüş Alanı Aktif',
+                header_uvc_active: 'UVC Aktif',
+                header_uvc_inactive: 'UVC Kapalı',
+                sdn_on: 'Aktif',
+                sdn_off: 'Kapalı',
+                lang_switched: '✓ Dil Türkçe olarak ayarlandı',
+            },
+            en: {
+                page_title: 'Pi Zero UVC Camera',
+                card_status: '📊 System Status',
+                last_update_label: 'Last update:',
+                just_now: 'just now',
+                stat_cpu_temp: 'CPU Temp',
+                stat_cpu_load: 'CPU Usage',
+                stat_gpu_load: 'GPU Usage',
+                stat_pipeline: 'Denoise & USB',
+                stat_memory: 'Memory',
+                stat_disk: 'Disk',
+                stat_uptime: 'Uptime',
+                stat_ip: 'IP Address',
+                stat_camera: 'Camera',
+                stat_uvc: 'UVC Device',
+                stat_role: 'Pupil Role',
+                stat_sensor: 'Sensor Profile',
+                stat_resolution: 'Resolution & FPS',
+                card_pupil_sensor: '🎯 Pupil Capture & Sensor Configuration',
+                label_camera_role: 'Pupil Capture Camera Role',
+                role_eye0: 'Pupil Cam1 ID0 (eye0) — Right Eye Camera',
+                role_eye1: 'Pupil Cam1 ID1 (eye1) — Left Eye Camera',
+                role_world: 'Pupil Cam1 ID2 (world) — World / Scene Camera',
+                role_generic: 'Pi Zero UVC Camera (generic) — Standard UVC',
+                btn_save_role: '💾 Save & Apply Role',
+                label_sensor_profile: 'CSI Camera Sensor Profile',
+                label_target_fps: 'Target FPS',
+                fps_90: '90 FPS (Recommended Eye Tracking)',
+                fps_120: '120 FPS (High Speed - 192p/240p/OV9281)',
+                label_resolution: 'Resolution',
+                res_192p: '192x192 (192p / Pupil Eye Tracking / Highest FPS)',
+                res_240p: '320x240 (240p / Fast Eye Tracking / Low Bandwidth)',
+                res_400p: '400x400 (400p / Square Eye Tracking)',
+                res_480p: '640x480 (480p / VGA Standard)',
+                res_600p: '800x600 (600p / SVGA)',
+                res_720p: '1280x720 (720p / HD World Scene)',
+                res_custom: '⚙️ Custom Resolution (User Defined)...',
+                label_custom_width: 'Width (px)',
+                label_custom_height: 'Height (px)',
+                custom_res_hint: '💡 <strong>Custom Resolution Tip:</strong> Dimensions must be even numbers (160x120 – 1920x1080). With VideoCore IV hardware JPEG encoding + Spatial Denoise, <strong>192x192</strong> (~69 FPS), <strong>320x240</strong> (~68 FPS), and <strong>640x480</strong> (~58–60 FPS) stream smoothly without corrupted frames.',
+                btn_save_sensor: '📷 Save & Apply Sensor',
+                info_preset_vs_reboot: '💡 <strong>Preset vs Role / Custom Resolution:</strong> Built-in resolutions (<code>192x192</code> – <code>1280x720</code>) are already registered in USB descriptors and can be switched directly inside <strong>Pupil Capture without rebooting</strong>. A safe Pi reboot (~45s) only happens when changing <strong>Camera Role</strong> (<code>eye0/eye1/world/generic</code>) or a <strong>Custom Resolution</strong>.',
+                card_service: '⚙️ UVC Service Management',
+                btn_start: '▶ Start',
+                btn_stop: '⏹ Stop',
+                btn_restart: '🔄 Restart',
+                btn_reboot: '⏻ Reboot System',
+                info_service: '💡 When the <strong>UVC service</strong> is running, Pi Zero appears on your computer as a standard USB webcam. You can open Windows Camera or OBS Studio and select "Pi Zero UVC Camera".',
+                card_camera_settings: '🎛️ Camera Settings',
+                label_hflip: 'Horizontal Flip (H-Flip)',
+                sub_hflip: 'Mirror image horizontally',
+                label_vflip: 'Vertical Flip (V-Flip)',
+                sub_vflip: 'Flip image vertically (for upside-down mounts)',
+                label_ae: 'Auto Exposure',
+                sub_ae: 'When disabled, manual exposure time and gain are applied',
+                label_sdn: 'VideoCore IV GPU Spatial Denoise',
+                sub_sdn: 'Reduces red/green/blue chroma sensor noise on VideoCore IV ISP hardware',
+                label_brightness: 'Brightness',
+                label_contrast: 'Contrast',
+                label_saturation: 'Saturation',
+                label_sharpness: 'Sharpness',
+                label_awb: 'White Balance',
+                awb_auto: 'Auto',
+                awb_daylight: 'Daylight',
+                awb_cloudy: 'Cloudy',
+                awb_tungsten: 'Tungsten',
+                awb_fluorescent: 'Fluorescent',
+                awb_indoor: 'Indoor',
+                label_exposure: 'Manual Exposure (µs)',
+                sub_exposure: 'For 90 FPS streaming, <= 10000 µs (e.g. 3000–8000 µs) is recommended; values above frame duration are clamped automatically by libcamera.',
+                label_gain: 'Analogue Gain (1.0x–16.0x)',
+                sub_gain: 'Applied live as sensor analogue gain when Auto Exposure is turned off.',
+                btn_save: '💾 Save & Apply Settings',
+                btn_reset: '↺ Reset Defaults',
+                info_live_control: '✨ <strong>Live Control:</strong> Exposure, gain, spatial denoise, and flip settings apply live without dropping the camera stream or USB connection.',
+                card_fast_crop: '⚡ Per-Resolution Fast-Crop & Field of View (FOV)',
+                fast_crop_intro: 'Choose the sensor hardware readout mode used when Pupil Capture or OBS selects each resolution. Enabling <strong>Fast-Crop</strong> reads only the center sensor region for <strong>120–190 FPS</strong>; disabling it uses the full field of view (Full FOV).',
+                th_resolution: 'Resolution',
+                th_purpose: 'Use Case',
+                th_sensor_mode: 'Sensor Mode',
+                th_fast_crop: 'Fast-Crop (High-FPS)',
+                info_fast_crop: '💡 <strong>Note:</strong> To prevent Bayer striping artifacts on OV5647 at 192x192 / 320x240, <strong>Fast-Crop is disabled by default</strong> (Full FOV + VideoCore IV ISP hardware scaling). Changes apply immediately without restarting the service.',
+                card_guide: '📖 User Guide',
+                saving: 'Saving...',
+                conn_error: 'Connection error: ',
+                settings_saved: '✓ Settings saved',
+                save_failed: '✗ Failed to save settings',
+                defaults_loaded: 'Default values loaded — remember to click Save',
+                svc_starting: 'Starting service',
+                svc_stopping: 'Stopping service',
+                svc_restarting: 'Restarting service',
+                svc_started: 'started',
+                svc_stopped: 'stopped',
+                svc_restarted: 'restarted',
+                svc_success_prefix: '✓ Service ',
+                svc_failed: '✗ Action failed: ',
+                unknown_error: 'unknown error',
+                reboot_confirm: 'The Pi Zero will reboot now. Are you sure?',
+                rebooting: 'Rebooting system...',
+                err_invalid_res: 'Please enter valid width and height values',
+                err_even_res: 'Width and height must be even numbers',
+                err_range_res: 'Resolution must be between 160x120 and 1920x1080',
+                sensor_failed: '✗ Sensor update failed: ',
+                fast_crop_toast_crop: '⚡ Fast-Crop (190 FPS)',
+                fast_crop_toast_full: '🔍 Full Field of View (Full FOV)',
+                fast_crop_mode_suffix: ' mode: ',
+                fast_crop_failed: '✗ Failed to update Fast-Crop: ',
+                badge_crop_active: '⚡ 191 FPS Crop Active',
+                badge_fov_active: '🔍 Full FOV Active',
+                header_uvc_active: 'UVC Active',
+                header_uvc_inactive: 'UVC Inactive',
+                sdn_on: 'On',
+                sdn_off: 'Off',
+                lang_switched: '✓ Language switched to English',
+            }
+        };
+
+        const GUIDE_HTML = {
+            tr: `<strong>🔌 Bağlantı:</strong><br>
+                Pi Zero'nun ortadaki <code>USB</code> (Data) portunu (güç portu <code>PWR IN</code> DEĞİL) bilgisayarınıza veri kablosuyla bağlayın.<br><br>
+                <strong>🎯 Pupil Capture (Önerilen):</strong><br>
+                • Windows eklentisi ve sürücü kurulumu için depodan <code>powershell -ExecutionPolicy Bypass -File .\\windows\\install_plugin.ps1</code> çalıştırın<br>
+                • Seçili role göre cihaz <code>Pupil Cam1 ID0</code> (eye0), <code>ID1</code> (eye1) veya <code>ID2</code> (world) olarak tanınır<br>
+                • ⚠️ Pupil Capture'da canlı video açıkken <code>uvc-gadget</code> servisini yeniden başlatmayın; değişiklik öncesi kamera akışını durdurun<br><br>
+                <strong>🖥️ Diğer Uygulamalarda Kullanım:</strong><br>
+                • <strong>Kamera Uygulaması:</strong> Başlat → Kamera → "Pupil Cam1 ID0" / "Pi Zero UVC Camera"<br>
+                • <strong>OBS Studio:</strong> Kaynak Ekle → Video Yakalama Cihazı<br>
+                • <strong>Zoom/Teams:</strong> Ayarlar → Video → Kamera<br><br>
+                <strong>🌐 Web Paneli:</strong><br>
+                Bu sayfaya her zaman <code>http://${DEVICE_HOSTNAME}.local:8080</code> adresinden erişebilirsiniz.`,
+            en: `<strong>🔌 Hardware Connection:</strong><br>
+                Connect the Pi Zero's center <code>USB</code> (Data) port (NOT the <code>PWR IN</code> port) to your PC with a USB data cable.<br><br>
+                <strong>🎯 Pupil Capture (Recommended):</strong><br>
+                • Run <code>powershell -ExecutionPolicy Bypass -File .\\windows\\install_plugin.ps1</code> on Windows to install the plugin and <code>libusbK</code> driver<br>
+                • Depending on the selected role, the camera enumerates as <code>Pupil Cam1 ID0</code> (eye0), <code>ID1</code> (eye1), or <code>ID2</code> (world)<br>
+                • ⚠️ Do not restart the <code>uvc-gadget</code> service while Pupil Capture is actively streaming; stop the stream first<br><br>
+                <strong>🖥️ Other Applications:</strong><br>
+                • <strong>Windows Camera:</strong> Start → Camera → select "Pupil Cam1 ID0" / "Pi Zero UVC Camera"<br>
+                • <strong>OBS Studio:</strong> Add Source → Video Capture Device<br>
+                • <strong>Zoom/Teams:</strong> Settings → Video → Camera<br><br>
+                <strong>🌐 Web Dashboard:</strong><br>
+                Always reachable at <code>http://${DEVICE_HOSTNAME}.local:8080</code>.`
+        };
+
+        function t(key) {
+            return (I18N[currentLang] && I18N[currentLang][key]) || I18N.tr[key] || key;
+        }
+
+        function translateBackendMsg(msg) {
+            if (!msg || currentLang === 'tr') return msg;
+            const map = {
+                'Ayarlar canlı uygulandı (bağlantı kesilmedi)': 'Settings applied live (stream uninterrupted)',
+                "Kaydedildi. Çözünürlük/FPS'i Pupil Capture içinden seçin (yeniden başlatma gerekmez)": 'Saved. Select resolution/FPS directly inside Pupil Capture (no reboot needed)',
+                'USB kimliği değişti: Pi güvenli şekilde yeniden başlatılıyor (~45 sn)': 'USB identity changed: safely rebooting Pi (~45s)',
+                'Rol zaten aktif': 'Role is already active',
+            };
+            return map[msg] || msg;
+        }
+
+        function localizeStatusValue(val, kind) {
+            if (!val || currentLang === 'tr') return val;
+            if (kind === 'camera') {
+                return String(val)
+                    .replace('algılandı ✓', 'detected ✓')
+                    .replace('Kamera algılanamadı ✗', 'Camera not detected ✗');
+            }
+            if (kind === 'uvc_device') {
+                return String(val).replace('Gadget cihazı bulunamadı', 'Gadget device not found');
+            }
+            if (kind === 'disk') {
+                return String(val).replace('kullanıldı)', 'used)');
+            }
+            if (kind === 'uptime') {
+                return String(val)
+                    .replace('< 1 dakika', '< 1 min')
+                    .replace(/ gün/g, 'd')
+                    .replace(/ saat/g, 'h')
+                    .replace(/ dakika/g, 'm');
+            }
+            if (kind === 'gpu_status') {
+                return String(val)
+                    .replace('(~Tahmini)', '(~Estimated)')
+                    .replace('(Boşta)', '(Idle)')
+                    .replace('(Aktif)', '(Active)');
+            }
+            return val;
+        }
+
+        function applyTranslations() {
+            document.documentElement.lang = currentLang;
+            document.title = t('page_title');
+
+            const btnTr = document.getElementById('langBtnTr');
+            const btnEn = document.getElementById('langBtnEn');
+            if (btnTr) btnTr.classList.toggle('active', currentLang === 'tr');
+            if (btnEn) btnEn.classList.toggle('active', currentLang === 'en');
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (I18N[currentLang] && key in I18N[currentLang]) {
+                    el.textContent = I18N[currentLang][key];
+                }
+            });
+
+            document.querySelectorAll('[data-i18n-html]').forEach(el => {
+                const key = el.getAttribute('data-i18n-html');
+                if (I18N[currentLang] && key in I18N[currentLang]) {
+                    el.innerHTML = I18N[currentLang][key];
+                }
+            });
+
+            const guideBox = document.getElementById('guideBox');
+            if (guideBox) guideBox.innerHTML = GUIDE_HTML[currentLang] || GUIDE_HTML.tr;
+
+            if (!hasLiveTimestamp) {
+                const lu = document.getElementById('lastUpdate');
+                if (lu) lu.textContent = t('just_now');
+            } else {
+                document.getElementById('lastUpdate').textContent =
+                    new Date().toLocaleTimeString(currentLang === 'en' ? 'en-US' : 'tr-TR');
+            }
+
+            onRoleChange(document.getElementById('cameraRole').value);
+            renderFastCropTable(currentFastCropConfig);
+            if (lastStatusData && Object.keys(lastStatusData).length > 0) {
+                renderStatus(lastStatusData, false);
+            }
+        }
+
+        async function setLanguage(lang, persist = true) {
+            if (lang !== 'tr' && lang !== 'en') return;
+            currentLang = lang;
+            try { localStorage.setItem('picam_lang', lang); } catch (e) {}
+            applyTranslations();
+            if (persist) {
+                showToast(t('lang_switched'), 'info');
+                try {
+                    await fetch('/api/language', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language: lang }),
+                    });
+                } catch (e) {}
+            }
+        }
+
+        // =====================================================================
         // Yardımcı Fonksiyonlar
         // =====================================================================
 
@@ -846,7 +1267,7 @@
                 const resp = await fetch(url, options);
                 return await resp.json();
             } catch (e) {
-                showToast('Bağlantı hatası: ' + e.message, 'error');
+                showToast(t('conn_error') + e.message, 'error');
                 return null;
             }
         }
@@ -876,7 +1297,7 @@
         async function saveSettings() {
             const btn = document.getElementById('btnSave');
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+            btn.innerHTML = `<span class="spinner"></span> ${t('saving')}`;
 
             const config = {
                 hflip: document.getElementById('hflip').checked,
@@ -890,6 +1311,7 @@
                 exposure_value: parseInt(document.getElementById('exposure_value').value, 10),
                 analogue_gain: parseFloat(document.getElementById('analogue_gain').value),
                 awb_mode: document.getElementById('awb_mode').value,
+                language: currentLang,
             };
 
             const result = await apiCall('/api/config', {
@@ -899,13 +1321,14 @@
             });
 
             btn.disabled = false;
-            btn.innerHTML = '💾 Ayarları Kaydet ve Uygula';
+            btn.textContent = t('btn_save');
 
             if (result && result.status === 'ok') {
-                showToast('✓ Ayarlar kaydedildi' + (result.restart ? ' — ' + result.restart : ''), 'success');
+                const msg = result.restart ? ' — ' + translateBackendMsg(result.restart) : '';
+                showToast(t('settings_saved') + msg, 'success');
                 refreshStatus();
             } else {
-                showToast('✗ Kaydetme başarısız', 'error');
+                showToast(t('save_failed'), 'error');
             }
         }
 
@@ -929,7 +1352,7 @@
             // Label'ları güncelle
             document.querySelectorAll('input[type="range"]').forEach(updateRangeLabel);
             updateExposureVisibility();
-            showToast('Varsayılan değerler yüklendi — Kaydetmeyi unutmayın', 'info');
+            showToast(t('defaults_loaded'), 'info');
         }
 
         // =====================================================================
@@ -937,22 +1360,27 @@
         // =====================================================================
 
         async function serviceAction(action) {
-            const labels = { start: 'Başlatılıyor', stop: 'Durduruluyor', restart: 'Yeniden başlatılıyor' };
-            showToast(`${labels[action]}...`, 'info');
+            const pendingMap = {
+                start: t('svc_starting'),
+                stop: t('svc_stopping'),
+                restart: t('svc_restarting'),
+            };
+            showToast(`${pendingMap[action]}...`, 'info');
 
             const result = await apiCall(`/api/service/${action}`);
 
             if (result && result.status === 'ok') {
-                showToast(`✓ Servis ${action === 'start' ? 'başlatıldı' : action === 'stop' ? 'durduruldu' : 'yeniden başlatıldı'}`, 'success');
+                const doneKey = action === 'start' ? 'svc_started' : action === 'stop' ? 'svc_stopped' : 'svc_restarted';
+                showToast(t('svc_success_prefix') + t(doneKey), 'success');
                 setTimeout(refreshStatus, 2000);
             } else {
-                showToast(`✗ İşlem başarısız: ${result?.error || 'bilinmeyen hata'}`, 'error');
+                showToast(`${t('svc_failed')}${result?.error || t('unknown_error')}`, 'error');
             }
         }
 
         async function rebootSystem() {
-            if (!confirm('Sistem yeniden başlatılacak. Emin misiniz?')) return;
-            showToast('Sistem yeniden başlatılıyor...', 'info');
+            if (!confirm(t('reboot_confirm'))) return;
+            showToast(t('rebooting'), 'info');
             await apiCall('/api/reboot');
         }
 
@@ -961,14 +1389,23 @@
         // =====================================================================
 
         const ROLE_HELP = {
-            eye0: 'Sağ Göz Kamerası: USB VID 0x05a3, PID 0x9230, "Pupil Cam1 ID0". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
-            eye1: 'Sol Göz Kamerası: USB VID 0x05a3, PID 0x9231, "Pupil Cam1 ID1". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
-            world: 'Dünya / Sahne Kamerası: USB VID 0x05a3, PID 0x9232, "Pupil Cam1 ID2". 30/60fps VGA veya 720p sahne kaydı için önerilir.',
-            generic: 'Standart UVC Kamera: USB VID 0x1d6b, PID 0x0104, "Pi Zero UVC Camera". Genel webcam uygulamaları için uygundur.',
+            tr: {
+                eye0: 'Sağ Göz Kamerası: USB VID 0x05a3, PID 0x9230, "Pupil Cam1 ID0". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
+                eye1: 'Sol Göz Kamerası: USB VID 0x05a3, PID 0x9231, "Pupil Cam1 ID1". Pupil Capture uvc_backend.py tarafından otomatik algılanır.',
+                world: 'Dünya / Sahne Kamerası: USB VID 0x05a3, PID 0x9232, "Pupil Cam1 ID2". 30/60fps VGA veya 720p sahne kaydı için önerilir.',
+                generic: 'Standart UVC Kamera: USB VID 0x1d6b, PID 0x0104, "Pi Zero UVC Camera". Genel webcam uygulamaları için uygundur.',
+            },
+            en: {
+                eye0: 'Right Eye Camera: USB VID 0x05a3, PID 0x9230, "Pupil Cam1 ID0". Automatically detected by Pupil Capture uvc_backend.py.',
+                eye1: 'Left Eye Camera: USB VID 0x05a3, PID 0x9231, "Pupil Cam1 ID1". Automatically detected by Pupil Capture uvc_backend.py.',
+                world: 'World / Scene Camera: USB VID 0x05a3, PID 0x9232, "Pupil Cam1 ID2". Recommended for 30/60fps VGA or 720p scene recording.',
+                generic: 'Standard UVC Camera: USB VID 0x1d6b, PID 0x0104, "Pi Zero UVC Camera". Suitable for OBS, Zoom, and general webcam apps.',
+            },
         };
 
         function onRoleChange(role) {
-            const desc = ROLE_HELP[role] || '';
+            const langHelp = ROLE_HELP[currentLang] || ROLE_HELP.tr;
+            const desc = langHelp[role] || '';
             const box = document.getElementById('roleDetails');
             if (box) box.textContent = desc;
         }
@@ -987,7 +1424,6 @@
         }
 
         async function applyRole() {
-            // Kullanıcı soldaki butona bassa dahi hem Rol hem de Çözünürlük/Sensör ayarlarını birlikte kaydet
             return applySensor();
         }
 
@@ -1011,7 +1447,7 @@
         async function applySensor() {
             const btn = document.getElementById('btnSaveSensor');
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+            btn.innerHTML = `<span class="spinner"></span> ${t('saving')}`;
 
             const sensor = document.getElementById('sensorProfile').value;
             const fps = document.getElementById('sensorFps').value;
@@ -1022,21 +1458,21 @@
                 width = parseInt(document.getElementById('customWidth').value, 10);
                 height = parseInt(document.getElementById('customHeight').value, 10);
                 if (isNaN(width) || isNaN(height)) {
-                    showToast('Lütfen geçerli genişlik ve yükseklik girin', 'error');
+                    showToast(t('err_invalid_res'), 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    btn.textContent = t('btn_save_sensor');
                     return;
                 }
                 if (width % 2 !== 0 || height % 2 !== 0) {
-                    showToast('Çözünürlük değerleri çift sayı (even) olmalıdır', 'error');
+                    showToast(t('err_even_res'), 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    btn.textContent = t('btn_save_sensor');
                     return;
                 }
                 if (width < 160 || width > 1920 || height < 120 || height > 1080) {
-                    showToast('Çözünürlük 160x120 ile 1920x1080 arasında olmalıdır', 'error');
+                    showToast(t('err_range_res'), 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+                    btn.textContent = t('btn_save_sensor');
                     return;
                 }
             } else {
@@ -1049,7 +1485,7 @@
             const btnRole = document.getElementById('btnSaveRole');
             if (btnRole) {
                 btnRole.disabled = true;
-                btnRole.innerHTML = '<span class="spinner"></span> Kaydediliyor...';
+                btnRole.innerHTML = `<span class="spinner"></span> ${t('saving')}`;
             }
 
             const result = await apiCall('/api/sensor', {
@@ -1059,17 +1495,18 @@
             });
 
             btn.disabled = false;
-            btn.innerHTML = '📷 Sensörü Kaydet ve Uygula';
+            btn.textContent = t('btn_save_sensor');
             if (btnRole) {
                 btnRole.disabled = false;
-                btnRole.innerHTML = '💾 Rolü Kaydet ve Uygula';
+                btnRole.textContent = t('btn_save_role');
             }
 
             if (result && result.status === 'ok') {
-                showToast(`✓ ${width}x${height} @ ${fps}fps (${role}) — ${result.restart || ''}`, 'success');
+                const extra = result.restart ? ' — ' + translateBackendMsg(result.restart) : '';
+                showToast(`✓ ${width}x${height} @ ${fps}fps (${role})${extra}`, 'success');
                 setTimeout(refreshStatus, 2000);
             } else {
-                showToast(`✗ Sensör güncelleme başarısız: ${result?.message || 'hata'}`, 'error');
+                showToast(`${t('sensor_failed')}${result?.message || t('unknown_error')}`, 'error');
             }
         }
 
@@ -1078,12 +1515,48 @@
         // =====================================================================
 
         const FAST_CROP_INFO = [
-            { res: '192x192', label: '192x192 (192p)', purpose: 'Pupil Göz Takibi (Eye Tracking)', cropDesc: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', fullDesc: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~69 FPS)' },
-            { res: '320x240', label: '320x240 (240p)', purpose: 'Yüksek Hızlı Göz Takibi (Düşük Bant Genişliği)', cropDesc: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', fullDesc: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~68 FPS)' },
-            { res: '400x400', label: '400x400 (400p)', purpose: 'Kare Göz Takibi', cropDesc: '⚡ Merkez Kırpma Modu', fullDesc: '🔍 Full FOV + GPU ISP Ölçekleme' },
-            { res: '640x480', label: '640x480 (VGA)', purpose: 'Standart Göz / Dünya Sahnesi', cropDesc: '⚡ Merkez Kırpma Modu', fullDesc: '🔍 Tam Sensör Binned Full FOV (~58–60 FPS)' },
-            { res: '800x600', label: '800x600 (SVGA)', purpose: 'Geniş Çevre / Sahne Kamerası', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 Tam Sensör Geniş Açı (~37 FPS)' },
-            { res: '1280x720', label: '1280x720 (720p)', purpose: 'HD Dünya Sahne Kaydı', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 1920x1080 Binned HD Full FOV (30 FPS)' }
+            {
+                res: '192x192',
+                label: '192x192 (192p)',
+                purpose: { tr: 'Pupil Göz Takibi (Eye Tracking)', en: 'Pupil Eye Tracking' },
+                cropDesc: { tr: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', en: '⚡ 320x240 Center Crop (120–190 FPS)' },
+                fullDesc: { tr: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~69 FPS)', en: '🔍 640x480 Full FOV + GPU ISP Scale (~69 FPS)' }
+            },
+            {
+                res: '320x240',
+                label: '320x240 (240p)',
+                purpose: { tr: 'Yüksek Hızlı Göz Takibi (Düşük Bant Genişliği)', en: 'High-Speed Eye Tracking (Low Bandwidth)' },
+                cropDesc: { tr: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', en: '⚡ 320x240 Center Crop (120–190 FPS)' },
+                fullDesc: { tr: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~68 FPS)', en: '🔍 640x480 Full FOV + GPU ISP Scale (~68 FPS)' }
+            },
+            {
+                res: '400x400',
+                label: '400x400 (400p)',
+                purpose: { tr: 'Kare Göz Takibi', en: 'Square Eye Tracking' },
+                cropDesc: { tr: '⚡ Merkez Kırpma Modu', en: '⚡ Center Crop Mode' },
+                fullDesc: { tr: '🔍 Full FOV + GPU ISP Ölçekleme', en: '🔍 Full FOV + GPU ISP Scale' }
+            },
+            {
+                res: '640x480',
+                label: '640x480 (VGA)',
+                purpose: { tr: 'Standart Göz / Dünya Sahnesi', en: 'Standard Eye / Scene Camera' },
+                cropDesc: { tr: '⚡ Merkez Kırpma Modu', en: '⚡ Center Crop Mode' },
+                fullDesc: { tr: '🔍 Tam Sensör Binned Full FOV (~58–60 FPS)', en: '🔍 Full Sensor Binned Full FOV (~58–60 FPS)' }
+            },
+            {
+                res: '800x600',
+                label: '800x600 (SVGA)',
+                purpose: { tr: 'Geniş Çevre / Sahne Kamerası', en: 'Wide Scene / Environment Camera' },
+                cropDesc: { tr: '⚡ Kırpma Modu', en: '⚡ Crop Mode' },
+                fullDesc: { tr: '🔍 Tam Sensör Geniş Açı (~37 FPS)', en: '🔍 Full Sensor Wide FOV (~37 FPS)' }
+            },
+            {
+                res: '1280x720',
+                label: '1280x720 (720p)',
+                purpose: { tr: 'HD Dünya Sahne Kaydı', en: 'HD World Scene Recording' },
+                cropDesc: { tr: '⚡ Kırpma Modu', en: '⚡ Crop Mode' },
+                fullDesc: { tr: '🔍 1920x1080 Binned HD Full FOV (30 FPS)', en: '🔍 1920x1080 Binned HD Full FOV (30 FPS)' }
+            }
         ];
 
         let currentFastCropConfig = {{ (config.fast_crop if config and config.fast_crop else {}) | tojson }};
@@ -1104,6 +1577,7 @@
             if (!tbody) return;
             tbody.innerHTML = '';
 
+            const lang = currentLang === 'en' ? 'en' : 'tr';
             FAST_CROP_INFO.forEach(item => {
                 const isChecked = !!currentFastCropConfig[item.res];
                 const tr = document.createElement('tr');
@@ -1111,10 +1585,10 @@
 
                 tr.innerHTML = `
                     <td style="padding: 12px; font-weight: 600;">${item.label}</td>
-                    <td style="padding: 12px; color: var(--text2);">${item.purpose}</td>
+                    <td style="padding: 12px; color: var(--text2);">${item.purpose[lang]}</td>
                     <td style="padding: 12px;">
                         <span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; background: ${isChecked ? 'rgba(79, 140, 255, 0.15)' : 'rgba(52, 211, 153, 0.15)'}; color: ${isChecked ? 'var(--accent)' : 'var(--green)'};">
-                            ${isChecked ? item.cropDesc : item.fullDesc}
+                            ${isChecked ? item.cropDesc[lang] : item.fullDesc[lang]}
                         </span>
                     </td>
                     <td style="padding: 12px; text-align: right;">
@@ -1139,10 +1613,11 @@
             });
 
             if (result && result.status === 'ok') {
-                showToast(`✓ ${resKey} modu: ${isChecked ? '⚡ Hızlı Kırpma (190 FPS)' : '🔍 Tam Görüş Alanı (Full FOV)'}`, 'success');
+                const modeTxt = isChecked ? t('fast_crop_toast_crop') : t('fast_crop_toast_full');
+                showToast(`✓ ${resKey}${t('fast_crop_mode_suffix')}${modeTxt}`, 'success');
                 refreshStatus();
             } else {
-                showToast(`✗ Ayar kaydedilemedi: ${result?.message || 'hata'}`, 'error');
+                showToast(`${t('fast_crop_failed')}${result?.message || t('unknown_error')}`, 'error');
             }
         }
 
@@ -1150,28 +1625,34 @@
         // Durum Güncelleme
         // =====================================================================
 
-        async function refreshStatus() {
-            const data = await apiCall('/api/status');
+        function renderStatus(data, updateClock = true) {
             if (!data) return;
+            lastStatusData = data;
 
-            document.getElementById('statTemp').textContent = data.cpu_temp;
-            document.getElementById('statLoad').textContent = data.cpu_load;
+            if (data.cpu_temp !== undefined) document.getElementById('statTemp').textContent = data.cpu_temp;
+            if (data.cpu_load !== undefined) document.getElementById('statLoad').textContent = data.cpu_load;
+
             const gpuEl = document.getElementById('statGpuLoad');
             if (gpuEl && data.gpu_load) gpuEl.textContent = data.gpu_load;
+
             const gpuStatusEl = document.getElementById('statGpuStatus');
-            if (gpuStatusEl && data.gpu_status) gpuStatusEl.textContent = data.gpu_status;
+            if (gpuStatusEl && data.gpu_status) {
+                gpuStatusEl.textContent = localizeStatusValue(data.gpu_status, 'gpu_status');
+            }
+
             const pipeEl = document.getElementById('statPipeline');
             if (pipeEl) {
-                const sdnLabel = data.spatial_denoise === false ? 'Kapalı' : 'Aktif';
+                const sdnLabel = data.spatial_denoise === false ? t('sdn_off') : t('sdn_on');
                 const maxPkt = data.usb_maxpacket || '1024';
                 pipeEl.textContent = `GPU SDN ${sdnLabel} · ${maxPkt}B ISOC`;
             }
-            document.getElementById('statMem').textContent = data.memory;
-            document.getElementById('statDisk').textContent = data.disk;
-            document.getElementById('statUptime').textContent = data.uptime;
-            document.getElementById('statIP').textContent = data.ip_addresses;
-            document.getElementById('statCam').textContent = data.camera;
-            document.getElementById('statUVC').textContent = data.uvc_device;
+
+            if (data.memory !== undefined) document.getElementById('statMem').textContent = data.memory;
+            if (data.disk !== undefined) document.getElementById('statDisk').textContent = localizeStatusValue(data.disk, 'disk');
+            if (data.uptime !== undefined) document.getElementById('statUptime').textContent = localizeStatusValue(data.uptime, 'uptime');
+            if (data.ip_addresses !== undefined) document.getElementById('statIP').textContent = data.ip_addresses;
+            if (data.camera !== undefined) document.getElementById('statCam').textContent = localizeStatusValue(data.camera, 'camera');
+            if (data.uvc_device !== undefined) document.getElementById('statUVC').textContent = localizeStatusValue(data.uvc_device, 'uvc_device');
 
             if (data.role_title || data.role) {
                 const el = document.getElementById('statRole');
@@ -1192,11 +1673,11 @@
             const badge = document.getElementById('fastCropSysfsBadge');
             if (badge) {
                 if (data.fast_crop_sysfs === true) {
-                    badge.innerHTML = '⚡ 191 FPS Kırpma Aktif';
+                    badge.textContent = t('badge_crop_active');
                     badge.style.background = 'rgba(79, 140, 255, 0.2)';
                     badge.style.color = 'var(--accent)';
-                } else if (data.fast_crop_sysfs === false) {
-                    badge.innerHTML = '🔍 Tam Görüş Alanı Aktif';
+                } else {
+                    badge.textContent = t('badge_fov_active');
                     badge.style.background = 'rgba(52, 211, 153, 0.2)';
                     badge.style.color = 'var(--green)';
                 }
@@ -1206,17 +1687,23 @@
             const dot = document.getElementById('headerDot');
             const statusText = document.getElementById('headerStatus');
             dot.className = `status-dot ${data.uvc_active ? 'active' : 'inactive'}`;
-            statusText.textContent = `UVC ${data.uvc_active ? 'Aktif' : 'Kapalı'}`;
+            statusText.textContent = data.uvc_active ? t('header_uvc_active') : t('header_uvc_inactive');
 
-            // Zaman damgası
-            const now = new Date();
-            document.getElementById('lastUpdate').textContent =
-                now.toLocaleTimeString('tr-TR');
+            if (updateClock) {
+                hasLiveTimestamp = true;
+                document.getElementById('lastUpdate').textContent =
+                    new Date().toLocaleTimeString(currentLang === 'en' ? 'en-US' : 'tr-TR');
+            }
         }
 
-        // İlk açılışta yardım metnini ayarla
-        onRoleChange(document.getElementById('cameraRole').value);
-        renderFastCropTable(currentFastCropConfig);
+        async function refreshStatus() {
+            const data = await apiCall('/api/status');
+            if (!data) return;
+            renderStatus(data, true);
+        }
+
+        // İlk açılışta aktif dili uygula ve tabloları çiz
+        applyTranslations();
 
         // Her 5 saniyede durum güncelle
         setInterval(refreshStatus, 5000);
