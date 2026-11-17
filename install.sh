@@ -52,6 +52,9 @@ if [ ! -f "$SCRIPT_DIR/scripts/setup-gadget.sh" ]; then
     success "Proje dosyaları hazırlandı: $SCRIPT_DIR"
 fi
 
+# Satır sonu uyumluluğu (Windows CRLF aktarımına karşı)
+find "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/services" "$SCRIPT_DIR/web" -type f -exec sed -i 's/\r$//' {} + 2>/dev/null || true
+
 # Pi Zero / Raspberry Pi donanım kontrolü
 if ! grep -q "Raspberry Pi" /proc/cpuinfo 2>/dev/null && ! grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
     warn "Raspberry Pi donanımı tespit edilemedi, genel Linux olarak devam ediliyor..."
@@ -246,6 +249,7 @@ SENSOR="ov5647"
 FPS="90"
 WIDTH="640"
 HEIGHT="480"
+ALLOW_TEST_PATTERN="true"
 ENVEOF
     chmod 644 "$DEFAULT_ENV"
     success "Varsayılan profil dosyası oluşturuldu → $DEFAULT_ENV"
@@ -275,7 +279,9 @@ if [ ! -f /etc/picam/config.json ]; then
   "saturation": 50,
   "sharpness": 50,
   "auto_exposure": true,
-  "exposure_value": 1000,
+  "exposure_value": 5000,
+  "analogue_gain": 8.0,
+  "spatial_denoise": true,
   "awb_mode": "auto"
 }
 JSONEOF
@@ -317,11 +323,11 @@ echo -e "${GREEN}  ✓ KURULUM BAŞARIYLA TAMAMLANDI!                      ${NC}
 echo -e "${GREEN}========================================================${NC}"
 echo ""
 echo "  Kurulan Bileşenler:"
-echo "  ├── UVC Gadget Çekirdeği : $(which uvc-gadget) (VideoCore IV GPU DMABUF Release)"
-echo "  ├── OV5647 Yüksek FPS    : 120-190 FPS Modeli (320x240 Donanımsal Merkez Kırpma & Dinamik sysfs)"
-echo "  ├── ConfigFS Betiği      : /usr/local/bin/setup-gadget.sh"
-echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh (Dinamik Çözünürlük Bazlı Kırpma)"
-echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080, Canlı Fast-Crop / FOV Seçimi)"
+echo "  ├── UVC Gadget Çekirdeği : $(which uvc-gadget) (VideoCore IV GPU DMABUF + Spatial Denoise Release)"
+echo "  ├── OV5647 Yüksek FPS    : 120-190 FPS Modülü (Varsayılan Full FOV + İsteğe Bağlı Fast-Crop)"
+echo "  ├── ConfigFS Betiği      : /usr/local/bin/setup-gadget.sh (maxpacket=1024, 192p–720p UVC Tanımlayıcıları)"
+echo "  ├── Akış Orkestratörü    : /usr/local/bin/start-uvc.sh (Hızlı IPA Tuning & Çözünürlük Yönetimi)"
+echo "  ├── Web Arayüzü          : /opt/picam-web/ (Port :8080, GPU Yükü / Spatial Denoise / Gain / Fast-Crop)"
 echo "  ├── Kamera Ayarları      : /etc/picam/config.json, rpi_pipeline.yaml, <sensor>_fast.json"
 echo "  └── Otomatik Servisler   : uvc-gadget.service, picam-web.service"
 echo ""

@@ -8,6 +8,8 @@
  */
 
 #include <atomic>
+#include <cmath>
+#include <cstdlib>
 #include <errno.h>
 #include <fcntl.h>
 #include <fstream>
@@ -75,6 +77,20 @@ struct libcamera_source {
 	bool auto_exposure_ = true;
 	int32_t exposure_us_ = 5000;
 	float analogue_gain_ = 8.0f;
+	bool spatial_denoise_ = true;
+	float brightness_ = 0.0f;
+	float contrast_ = 1.0f;
+	float saturation_ = 1.0f;
+	float sharpness_ = 1.0f;
+	bool controls_applied_ = false;
+	bool applied_auto_exposure_ = true;
+	int32_t applied_exposure_us_ = -1;
+	float applied_analogue_gain_ = -1.0f;
+	bool applied_spatial_denoise_ = true;
+	float applied_brightness_ = 0.0f;
+	float applied_contrast_ = 1.0f;
+	float applied_saturation_ = 1.0f;
+	float applied_sharpness_ = 1.0f;
 	int64_t current_frame_time_us_ = 10000;
 	time_t last_cfg_mtime_ = 0;
 	std::chrono::steady_clock::time_point last_cfg_check_{};
@@ -156,6 +172,106 @@ void libcamera_source::requestComplete(Request *request)
 	write(pfds[1], "x", 1);
 }
 
+namespace {
+
+template <typename T>
+T clamp_range(T val, T lo, T hi)
+{
+	return (val < lo) ? lo : ((val > hi) ? hi : val);
+}
+
+const char *find_json_value_start(const std::string &content, const char *key)
+{
+	size_t pos = content.find(key);
+	if (pos == std::string::npos)
+		return nullptr;
+	size_t colon = content.find(':', pos);
+	if (colon == std::string::npos)
+		return nullptr;
+	size_t val_start = content.find_first_not_of(" \t\r\n", colon + 1);
+	if (val_start == std::string::npos)
+		return nullptr;
+	return content.c_str() + val_start;
+}
+
+bool parse_json_bool(const std::string &content, const char *key, bool &out)
+{
+	const char *val = find_json_value_start(content, key);
+	if (!val)
+		return false;
+	if (strncmp(val, "true", 4) == 0) {
+		out = true;
+		return true;
+	}
+	if (strncmp(val, "false", 5) == 0) {
+		out = false;
+		return true;
+	}
+	return false;
+}
+
+bool parse_json_int(const std::string &content, const char *key, int &out)
+{
+	const char *val = find_json_value_start(content, key);
+	if (!val)
+		return false;
+	char *endptr = nullptr;
+	long parsed = std::strtol(val, &endptr, 10);
+	if (endptr == val)
+		return false;
+	out = static_cast<int>(parsed);
+	return true;
+}
+
+bool parse_json_float(const std::string &content, const char *key, float &out)
+{
+	const char *val = find_json_value_start(content, key);
+	if (!val)
+		return false;
+	char *endptr = nullptr;
+	float parsed = std::strtof(val, &endptr);
+	if (endptr == val)
+		return false;
+	out = parsed;
+	return true;
+}
+
+void set_if_non_neutral_or_changed(ControlList &ctrls, const ControlInfoMap &infoMap,
+				   const Control<float> &ctrl, float val, float neutral,
+				   float &applied)
+{
+	if ((std::fabs(val - neutral) > 1e-4f || std::fabs(val - applied) > 1e-4f) &&
+	    infoMap.find(&ctrl) != infoMap.end()) {
+		ctrls.set(ctrl, val);
+		applied = val;
+	}
+}
+
+void apply_tuning_controls(ControlList &ctrls, const Camera *cam,
+			   bool has_noise_reduction, bool spatial_denoise,
+			   float brightness, float &applied_brightness,
+			   float contrast, float &applied_contrast,
+			   float saturation, float &applied_saturation,
+			   float sharpness, float &applied_sharpness)
+{
+	const ControlInfoMap &infoMap = cam->controls();
+	if (has_noise_reduction) {
+		ctrls.set(controls::draft::NoiseReductionMode,
+			  spatial_denoise ? controls::draft::NoiseReductionModeFast
+					  : controls::draft::NoiseReductionModeOff);
+	}
+	set_if_non_neutral_or_changed(ctrls, infoMap, controls::Brightness, brightness, 0.0f,
+				      applied_brightness);
+	set_if_non_neutral_or_changed(ctrls, infoMap, controls::Contrast, contrast, 1.0f,
+				      applied_contrast);
+	set_if_non_neutral_or_changed(ctrls, infoMap, controls::Saturation, saturation, 1.0f,
+				      applied_saturation);
+	set_if_non_neutral_or_changed(ctrls, infoMap, controls::Sharpness, sharpness, 1.0f,
+				      applied_sharpness);
+}
+
+} /* namespace */
+
 void libcamera_source::checkDynamicConfig(int64_t frame_time_us)
 {
 	auto now = std::chrono::steady_clock::now();
@@ -182,33 +298,26 @@ void libcamera_source::checkDynamicConfig(int64_t frame_time_us)
 			    std::istreambuf_iterator<char>());
 	cfg_file.close();
 
-	size_t pos = content.find("\"auto_exposure\"");
-	if (pos != std::string::npos) {
-		size_t colon = content.find(':', pos);
-		if (colon != std::string::npos) {
-			size_t val_start = content.find_first_not_of(" \t\r\n", colon + 1);
-			if (val_start != std::string::npos) {
-				if (content.compare(val_start, 4, "true") == 0)
-					auto_exposure_ = true;
-				else if (content.compare(val_start, 5, "false") == 0)
-					auto_exposure_ = false;
-			}
-		}
-	}
+	parse_json_bool(content, "\"auto_exposure\"", auto_exposure_);
+	parse_json_bool(content, "\"spatial_denoise\"", spatial_denoise_);
 
-	pos = content.find("\"exposure_value\"");
-	if (pos != std::string::npos) {
-		size_t colon = content.find(':', pos);
-		if (colon != std::string::npos) {
-			size_t val_start = content.find_first_not_of(" \t\r\n", colon + 1);
-			if (val_start != std::string::npos) {
-				int val = std::atoi(content.c_str() + val_start);
-				if (val > 0) {
-					exposure_us_ = val;
-				}
-			}
-		}
-	}
+	int exp_val = 0;
+	if (parse_json_int(content, "\"exposure_value\"", exp_val) && exp_val > 0)
+		exposure_us_ = exp_val;
+
+	float gain_val = 0.0f;
+	if (parse_json_float(content, "\"analogue_gain\"", gain_val))
+		analogue_gain_ = clamp_range(gain_val, 1.0f, 16.0f);
+
+	int ui_val = 0;
+	if (parse_json_int(content, "\"brightness\"", ui_val))
+		brightness_ = (clamp_range(ui_val, 0, 100) - 50) / 50.0f;
+	if (parse_json_int(content, "\"contrast\"", ui_val))
+		contrast_ = clamp_range(ui_val, 0, 100) / 50.0f;
+	if (parse_json_int(content, "\"saturation\"", ui_val))
+		saturation_ = clamp_range(ui_val, 0, 100) / 50.0f;
+	if (parse_json_int(content, "\"sharpness\"", ui_val))
+		sharpness_ = clamp_range(ui_val, 0, 100) / 50.0f;
 
 	if (frame_time_us > 200 && exposure_us_ > frame_time_us - 200)
 		exposure_us_ = static_cast<int32_t>(frame_time_us - 200);
@@ -226,17 +335,34 @@ void libcamera_source::inputDone(unsigned int cookie)
 		Request *r = requests[req_idx].get();
 		r->reuse(Request::ReuseBuffers);
 
-		if (!auto_exposure_) {
-			r->controls().set(controls::AeEnable, false);
-			r->controls().set(controls::ExposureTime, exposure_us_);
-			r->controls().set(controls::AnalogueGain, analogue_gain_);
-		} else {
-			r->controls().set(controls::AeEnable, true);
-		}
+		if (!controls_applied_ || auto_exposure_ != applied_auto_exposure_ ||
+		    (!auto_exposure_ && (exposure_us_ != applied_exposure_us_ ||
+					 analogue_gain_ != applied_analogue_gain_)) ||
+		    spatial_denoise_ != applied_spatial_denoise_ ||
+		    brightness_ != applied_brightness_ ||
+		    contrast_ != applied_contrast_ ||
+		    saturation_ != applied_saturation_ ||
+		    sharpness_ != applied_sharpness_) {
+			if (!auto_exposure_) {
+				r->controls().set(controls::AeEnable, false);
+				r->controls().set(controls::ExposureTime, exposure_us_);
+				r->controls().set(controls::AnalogueGain, analogue_gain_);
+			} else {
+				r->controls().set(controls::AeEnable, true);
+			}
 
-		if (has_noise_reduction_) {
-			r->controls().set(controls::draft::NoiseReductionMode,
-					  controls::draft::NoiseReductionModeFast);
+			apply_tuning_controls(r->controls(), camera.get(),
+					      has_noise_reduction_, spatial_denoise_,
+					      brightness_, applied_brightness_,
+					      contrast_, applied_contrast_,
+					      saturation_, applied_saturation_,
+					      sharpness_, applied_sharpness_);
+
+			controls_applied_ = true;
+			applied_auto_exposure_ = auto_exposure_;
+			applied_exposure_us_ = exposure_us_;
+			applied_analogue_gain_ = analogue_gain_;
+			applied_spatial_denoise_ = spatial_denoise_;
 		}
 
 		camera->queueRequest(r);
@@ -445,7 +571,12 @@ static int libcamera_source_set_format(struct video_source *s,
 	fmt->field = V4L2_FIELD_ANY;
 
 	/* TODO: Can we use libcamera helpers to get image size / stride? */
-	fmt->sizeimage = fmt->width * fmt->height * 2;
+	if (fmt->pixelformat == V4L2_PIX_FMT_MJPEG) {
+		unsigned int mjpeg_size = fmt->width * fmt->height;
+		fmt->sizeimage = (mjpeg_size > 65536u) ? mjpeg_size : 65536u;
+	} else {
+		fmt->sizeimage = fmt->width * fmt->height * 2;
+	}
 
 	return 0;
 }
@@ -462,21 +593,9 @@ static int libcamera_source_set_frame_rate(struct video_source *s, unsigned int 
 			  Span<const int64_t, 2>({ frame_time, frame_time }));
 
 	src->current_frame_time_us_ = frame_time;
+	src->last_cfg_check_ = {};
+	src->last_cfg_mtime_ = 0;
 	src->checkDynamicConfig(frame_time);
-
-	const char *ae_env = getenv("PICAM_AUTO_EXPOSURE");
-	const char *exp_env = getenv("PICAM_EXPOSURE_US");
-	if (ae_env) {
-		if (strcmp(ae_env, "false") == 0 || strcmp(ae_env, "0") == 0)
-			src->auto_exposure_ = false;
-		else if (strcmp(ae_env, "true") == 0 || strcmp(ae_env, "1") == 0)
-			src->auto_exposure_ = true;
-	}
-	if (exp_env && !src->auto_exposure_) {
-		int val = std::atoi(exp_env);
-		if (val > 0)
-			src->exposure_us_ = val;
-	}
 
 	if (frame_time > 200 && src->exposure_us_ > frame_time - 200)
 		src->exposure_us_ = static_cast<int32_t>(frame_time - 200);
@@ -490,6 +609,13 @@ static int libcamera_source_set_frame_rate(struct video_source *s, unsigned int 
 	} else {
 		src->controls.set(controls::AeEnable, true);
 	}
+
+	apply_tuning_controls(src->controls, src->camera.get(),
+			      src->has_noise_reduction_, src->spatial_denoise_,
+			      src->brightness_, src->applied_brightness_,
+			      src->contrast_, src->applied_contrast_,
+			      src->saturation_, src->applied_saturation_,
+			      src->sharpness_, src->applied_sharpness_);
 
 	return 0;
 }
@@ -616,6 +742,7 @@ static int libcamera_source_stream_on(struct video_source *s)
 	int ret;
 
 	src->stopping_.store(false);
+	src->controls_applied_ = false;
 	{
 		std::lock_guard<std::mutex> lock(src->requests_mutex);
 		while (!src->free_sink_bufs_.empty())
@@ -860,6 +987,23 @@ struct video_source *libcamera_source_create(const char *devname)
 					  controls::draft::NoiseReductionModeFast);
 			src->has_noise_reduction_ = true;
 			std::cout << "Enabling VideoCore IV GPU Hardware Spatial Denoise (NoiseReductionModeFast)" << std::endl;
+		}
+	}
+
+	/* Seed initial fallback defaults from environment before reading /etc/picam/config.json */
+	{
+		const char *ae_env = getenv("PICAM_AUTO_EXPOSURE");
+		const char *exp_env = getenv("PICAM_EXPOSURE_US");
+		if (ae_env) {
+			if (strcmp(ae_env, "false") == 0 || strcmp(ae_env, "0") == 0)
+				src->auto_exposure_ = false;
+			else if (strcmp(ae_env, "true") == 0 || strcmp(ae_env, "1") == 0)
+				src->auto_exposure_ = true;
+		}
+		if (exp_env) {
+			int val = std::atoi(exp_env);
+			if (val > 0)
+				src->exposure_us_ = val;
 		}
 	}
 

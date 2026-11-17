@@ -21,7 +21,8 @@ Options:
   -p, --port                  SSH/SCP port (1-65535, default: 22)
   -i, -k, --key, --key-path   Path to custom private SSH key
   -d, --dest, --remote-dest   Remote destination directory (default: ~/pi-zero-uvc-cam/)
-  -q, --quick, --skip-install Quick mode: update scripts/units/config without recompiling
+  -q, --quick, --skip-install Quick mode: update scripts/units/config without full install.sh
+  -c, --compile               Compile & install uvc-gadget (used with --quick)
   -n, --dry-run               Preview commands without executing network operations
 
 Positional arguments (fallback):
@@ -37,6 +38,7 @@ PORT=""
 KEY_PATH=""
 REMOTE_DEST=""
 QUICK_MODE=0
+COMPILE=0
 DRY_RUN=0
 
 POSITIONAL_ARGS=()
@@ -76,6 +78,8 @@ while [[ $# -gt 0 ]]; do
             REMOTE_DEST="${1#*=}"; shift ;;
         -q|--quick|--skip-install)
             QUICK_MODE=1; shift ;;
+        -c|--compile)
+            COMPILE=1; shift ;;
         -n|--dry-run)
             DRY_RUN=1; shift ;;
         -*)
@@ -194,7 +198,7 @@ echo "Port        : ${PORT}"
 echo "Role        : ${ROLE}"
 echo "Sensor      : ${SENSOR}"
 echo "Remote Dest : ${REMOTE_DEST}"
-echo "Quick Mode  : ${QUICK_MODE}"
+echo "Quick Mode  : ${QUICK_MODE} (Compile: ${COMPILE})"
 echo "Dry Run     : ${DRY_RUN}"
 echo "----------------------------------------------------------"
 
@@ -238,14 +242,28 @@ if [[ -n "$KEY_PATH" ]]; then
     SCP_OPTS+=(-i "$KEY_PATH")
 fi
 
-MKDIR_CMD="mkdir -p '${REMOTE_DEST}'"
+if [[ "$REMOTE_DEST" == "~/"* ]]; then
+    REMOTE_DEST_BASH="\$HOME/${REMOTE_DEST#'~/'}"
+elif [[ "$REMOTE_DEST" == "~" ]]; then
+    REMOTE_DEST_BASH="\$HOME"
+else
+    REMOTE_DEST_BASH="$REMOTE_DEST"
+fi
+
+MKDIR_CMD="mkdir -p \"${REMOTE_DEST_BASH}\""
+
+NORMALIZE_EOL_CMD="find . -type f \( -name '*.sh' -o -name '*.service' \) -exec sed -i 's/\r\$//' {} + && "
 
 CONFIG_UPDATE_CMD="sudo mkdir -p /etc/default && sudo sh -c 'if [ ! -f /etc/default/picam-uvc ]; then printf \"ROLE=\\\"${ROLE}\\\"\nSENSOR=\\\"${SENSOR}\\\"\nFPS=\\\"90\\\"\nWIDTH=\\\"640\\\"\nHEIGHT=\\\"480\\\"\nALLOW_TEST_PATTERN=\\\"true\\\"\n\" > /etc/default/picam-uvc; else grep -q \"^ROLE=\" /etc/default/picam-uvc && sed -i \"s/^ROLE=.*/ROLE=\\\"${ROLE}\\\"/\" /etc/default/picam-uvc || echo \"ROLE=\\\"${ROLE}\\\"\" >> /etc/default/picam-uvc; grep -q \"^SENSOR=\" /etc/default/picam-uvc && sed -i \"s/^SENSOR=.*/SENSOR=\\\"${SENSOR}\\\"/\" /etc/default/picam-uvc || echo \"SENSOR=\\\"${SENSOR}\\\"\" >> /etc/default/picam-uvc; grep -q \"^ALLOW_TEST_PATTERN=\" /etc/default/picam-uvc && sed -i \"s/^ALLOW_TEST_PATTERN=.*/ALLOW_TEST_PATTERN=\\\"true\\\"/\" /etc/default/picam-uvc || echo \"ALLOW_TEST_PATTERN=\\\"true\\\"\" >> /etc/default/picam-uvc; fi; chmod 644 /etc/default/picam-uvc'"
 
 if [[ "$QUICK_MODE" -eq 1 ]]; then
-    REMOTE_SETUP_CMD="cd '${REMOTE_DEST}' && sudo install -m 755 scripts/setup-gadget.sh /usr/local/bin/setup-gadget.sh && sudo install -m 755 scripts/start-uvc.sh /usr/local/bin/start-uvc.sh && ( [ ! -f scripts/build-ov5647-driver.sh ] || sudo install -m 755 scripts/build-ov5647-driver.sh /usr/local/bin/build-ov5647-driver.sh ) && ( [ ! -d web ] || ( sudo cp -r web/*.py /opt/picam-web/ 2>/dev/null || true; sudo cp -r web/templates /opt/picam-web/ 2>/dev/null || true ) ) && sudo install -m 644 services/uvc-gadget.service /etc/systemd/system/uvc-gadget.service && sudo install -m 644 services/picam-web.service /etc/systemd/system/picam-web.service && sudo systemctl daemon-reload && sudo systemctl restart picam-web && ${CONFIG_UPDATE_CMD} && sudo systemctl stop uvc-gadget && sudo /usr/local/bin/setup-gadget.sh '${ROLE}' restart && sudo systemctl start uvc-gadget"
+    COMPILE_CMD=""
+    if [[ "$COMPILE" -eq 1 ]]; then
+        COMPILE_CMD="( cd uvc-gadget && ( if [ -d build ]; then ninja -C build && sudo ninja -C build install; else meson setup build --buildtype=release && ninja -C build && sudo ninja -C build install; fi ) ) && "
+    fi
+    REMOTE_SETUP_CMD="cd \"${REMOTE_DEST_BASH}\" && ${NORMALIZE_EOL_CMD}${COMPILE_CMD}sudo install -m 755 scripts/setup-gadget.sh /usr/local/bin/setup-gadget.sh && sudo install -m 755 scripts/start-uvc.sh /usr/local/bin/start-uvc.sh && ( [ ! -f scripts/build-ov5647-driver.sh ] || sudo install -m 755 scripts/build-ov5647-driver.sh /usr/local/bin/build-ov5647-driver.sh ) && ( [ ! -d web ] || ( sudo cp -r web/*.py /opt/picam-web/ 2>/dev/null || true; sudo cp -r web/templates /opt/picam-web/ 2>/dev/null || true ) ) && sudo install -m 644 services/uvc-gadget.service /etc/systemd/system/uvc-gadget.service && sudo install -m 644 services/picam-web.service /etc/systemd/system/picam-web.service && sudo systemctl daemon-reload && sudo systemctl restart picam-web && ${CONFIG_UPDATE_CMD} && ( sudo systemctl stop uvc-gadget 2>/dev/null || true ) && sudo /usr/local/bin/setup-gadget.sh '${ROLE}' restart && sudo systemctl restart uvc-gadget"
 else
-    REMOTE_SETUP_CMD="cd '${REMOTE_DEST}' && sudo bash install.sh && ${CONFIG_UPDATE_CMD} && sudo /usr/local/bin/setup-gadget.sh '${ROLE}' restart && sudo systemctl restart uvc-gadget"
+    REMOTE_SETUP_CMD="cd \"${REMOTE_DEST_BASH}\" && ${NORMALIZE_EOL_CMD}sudo bash install.sh && ${CONFIG_UPDATE_CMD} && sudo /usr/local/bin/setup-gadget.sh '${ROLE}' restart && sudo systemctl restart uvc-gadget"
 fi
 
 VERIFY_CMD="systemctl is-active uvc-gadget >/dev/null 2>&1 && test -f /sys/kernel/config/usb_gadget/pi_uvc/strings/0x409/product && test -s /sys/kernel/config/usb_gadget/pi_uvc/UDC && cat /sys/kernel/config/usb_gadget/pi_uvc/strings/0x409/product"

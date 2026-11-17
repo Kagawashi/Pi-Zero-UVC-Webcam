@@ -165,6 +165,16 @@ start_gadget() {
         ival_lines=$(wc -l < "$FUNC/streaming/mjpeg/m/240p/dwFrameInterval" 2>/dev/null || echo 0)
         case "${WIDTH:-}x${HEIGHT:-}" in
             640x480|1280x720|320x240|400x400|800x600|"x"|"") ;;
+            192x192)
+                if [ ! -d "$FUNC/streaming/mjpeg/m/192p" ]; then
+                    local cw ch
+                    cw=$(cat "$FUNC/streaming/mjpeg/m/custom/wWidth" 2>/dev/null | tr -d '[:space:]')
+                    ch=$(cat "$FUNC/streaming/mjpeg/m/custom/wHeight" 2>/dev/null | tr -d '[:space:]')
+                    if [ "$cw" != "192" ] || [ "$ch" != "192" ]; then
+                        custom_ok=0
+                    fi
+                fi
+                ;;
             *)
                 local cw ch
                 cw=$(cat "$FUNC/streaming/mjpeg/m/custom/wWidth" 2>/dev/null | tr -d '[:space:]')
@@ -235,9 +245,9 @@ start_gadget() {
     # =========================================================================
     mkdir -p "$FUNC"
 
-    # High-Bandwidth Isochronous: 2048 bytes (2 transactions per microframe)
-    # Optimal FIFO stability on BCM2835 dwc2 with high throughput headroom
-    echo 2048 > "$FUNC/streaming_maxpacket"
+    # Standard Isochronous: 1024 bytes (1 transaction per microframe = 8.192 MB/s)
+    # Prevents BCM2835 dwc2 High-Bandwidth ISOC (2048) mid-frame packet drops (-ENODATA / Corrupt JPEG)
+    echo 1024 > "$FUNC/streaming_maxpacket"
     echo 1    > "$FUNC/streaming_maxburst"
     echo 1    > "$FUNC/streaming_interval"
 
@@ -286,7 +296,8 @@ start_gadget() {
         fi
         echo "$width"       > "$frame_dir/wWidth"
         echo "$height"      > "$frame_dir/wHeight"
-        local buf_size=$(( width * height * 2 ))
+        local buf_size=$(( width * height ))
+        [ "$buf_size" -lt 65536 ] && buf_size=65536
         echo "$buf_size"    > "$frame_dir/dwMaxVideoFrameBufferSize"
         echo "$default_interval" > "$frame_dir/dwDefaultFrameInterval"
         echo "$min_bitrate" > "$frame_dir/dwMinBitRate"
@@ -305,8 +316,8 @@ EOF
     # Frame Descriptor 1: 640x480 (480p - VGA Standart / Göz Takibi)
     register_frame_desc "480p" 640 480 "$DEFAULT_INTERVAL_480P" "83333\n111111\n166666\n333333\n666666" 1 73728000 589824000
 
-    # Frame Descriptor 2: 1280x720 (720p - HD Sahne)
-    register_frame_desc "720p" 1280 720 "333333" "166666\n333333\n666666" 2 110592000 442368000
+    # Frame Descriptor 2: 1280x720 (720p - HD Sahne, OV5647 / maxpacket=1024: 30/15fps)
+    register_frame_desc "720p" 1280 720 "333333" "333333\n666666" 2 110592000 221184000
 
     # Frame Descriptor 3: 320x240 (240p / 320p - Yüksek Hızlı Göz Takibi / Düşük CPU)
     register_frame_desc "240p" 320 240 "111111" "83333\n111111\n166666\n333333\n666666" 3
@@ -317,7 +328,10 @@ EOF
     # Frame Descriptor 5: 800x600 (600p - SVGA)
     register_frame_desc "600p" 800 600 "333333" "166666\n333333\n666666" 5
 
-    # Frame Descriptor 6: Dinamik Özel Çözünürlük (Kullanıcı Tanımlı)
+    # Frame Descriptor 6: 192x192 (192p - Pupil Göz Takibi / Yüksek FPS)
+    register_frame_desc "192p" 192 192 "111111" "83333\n111111\n166666\n333333\n666666" 6
+
+    # Frame Descriptor 7: Dinamik Özel Çözünürlük (Kullanıcı Tanımlı)
     CFG_W="${WIDTH:-}"
     CFG_H="${HEIGHT:-}"
     DEFAULT_FRAME_INDEX=1
@@ -327,10 +341,11 @@ EOF
         320x240)    DEFAULT_FRAME_INDEX=3 ;;
         400x400)    DEFAULT_FRAME_INDEX=4 ;;
         800x600)    DEFAULT_FRAME_INDEX=5 ;;
+        192x192)    DEFAULT_FRAME_INDEX=6 ;;
         *)
             echo "[i] Özel çözünürlük ConfigFS'e ekleniyor: ${CFG_W}x${CFG_H}"
-            register_frame_desc "custom" "$CFG_W" "$CFG_H" "111111" "83333\n111111\n166666\n333333\n666666" 6
-            DEFAULT_FRAME_INDEX=6
+            register_frame_desc "custom" "$CFG_W" "$CFG_H" "111111" "83333\n111111\n166666\n333333\n666666" 7
+            DEFAULT_FRAME_INDEX=7
             ;;
     esac
     (echo "$DEFAULT_FRAME_INDEX" > "$FUNC/streaming/mjpeg/m/bDefaultFrameIndex") 2>/dev/null || true
@@ -497,8 +512,9 @@ stop_gadget() {
     rm -rf "$FUNC/control/class/ss/h" 2>/dev/null || true
 
     # 5. Remove regular files if running on standard filesystem (mock testing)
-    rm -f "$FUNC/streaming/mjpeg/m/480p/"* 2>/dev/null || true
-    rm -f "$FUNC/streaming/mjpeg/m/720p/"* 2>/dev/null || true
+    for fd in "$FUNC"/streaming/mjpeg/m/*/; do
+        [ -d "$fd" ] && rm -f "${fd}"* 2>/dev/null || true
+    done
     rm -f "$FUNC/streaming/mjpeg/m/"* 2>/dev/null || true
     rm -f "$FUNC/streaming/color_matching/default/"* 2>/dev/null || true
     rm -f "$FUNC/control/header/h/"* 2>/dev/null || true
@@ -509,6 +525,7 @@ stop_gadget() {
     rm -f "$GADGET/"* 2>/dev/null || true
 
     # 6. Remove frame directories in reverse order
+    rmdir "$FUNC/streaming/mjpeg/m/192p" 2>/dev/null || true
     rmdir "$FUNC/streaming/mjpeg/m/480p" 2>/dev/null || true
     rmdir "$FUNC/streaming/mjpeg/m/720p" 2>/dev/null || true
     for fd in "$FUNC"/streaming/mjpeg/m/*/; do

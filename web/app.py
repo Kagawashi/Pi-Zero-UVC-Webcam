@@ -30,8 +30,8 @@ DEFAULT_CONFIG = {
     "width": 640,
     "height": 480,
     "fast_crop": {
-        "192x192": True,
-        "320x240": True,
+        "192x192": False,
+        "320x240": False,
         "400x400": False,
         "640x480": False,
         "800x600": False,
@@ -44,7 +44,9 @@ DEFAULT_CONFIG = {
     "saturation": 50,       # 0-100 (50 = normal)
     "sharpness": 50,        # 0-100 (50 = normal)
     "auto_exposure": True,
-    "exposure_value": 1000, # µs (manuel mod için)
+    "exposure_value": 5000, # µs (manuel mod için)
+    "analogue_gain": 8.0,   # 1.0-16.0 (manuel mod kazancı)
+    "spatial_denoise": True, # VideoCore IV GPU Spatial Denoise (NoiseReductionModeFast)
     "awb_mode": "auto",     # auto, daylight, cloudy, tungsten, fluorescent
 }
 
@@ -223,16 +225,23 @@ def save_default_env(env_updates: dict) -> dict:
 
 def load_config() -> dict:
     """Konfigürasyon dosyasını oku."""
+    config = DEFAULT_CONFIG.copy()
+    config["fast_crop"] = DEFAULT_CONFIG["fast_crop"].copy()
     try:
         if CONFIG_PATH.exists():
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 saved = json.load(f)
-            config = DEFAULT_CONFIG.copy()
-            config.update(saved)
+            if isinstance(saved, dict):
+                saved_fc = saved.get("fast_crop")
+                config.update(saved)
+                merged_fc = DEFAULT_CONFIG["fast_crop"].copy()
+                if isinstance(saved_fc, dict):
+                    merged_fc.update({str(k): bool(v) for k, v in saved_fc.items()})
+                config["fast_crop"] = merged_fc
             return config
     except (json.JSONDecodeError, IOError):
         pass
-    return DEFAULT_CONFIG.copy()
+    return config
 
 
 def save_config(config: dict):
@@ -300,19 +309,22 @@ def get_cpu_usage_percent() -> str:
 
 
 def get_gpu_usage_percent(width: int, height: int, fps: int, is_streaming: bool) -> tuple[str, str, str]:
-    """VideoCore IV ISP ve Donanımsal MJPEG Encoder yükünü hesapla."""
+    """VideoCore IV ISP ve Donanımsal MJPEG Encoder tahmini yükünü hesapla."""
     if not is_streaming:
         return "%0.0", "128 MB", "VideoCore IV V4L2 M2M (Boşta)"
 
-    # VideoCore IV ISP + V4L2 M2M JPEG encoder tepe işleme kapasitesi ~75 Megapiksel/saniyedir.
+    # Full-FOV modunda OV5647 + bcm2835-isp en az 640x480 ham sensör karesi işleyip ölçekler,
+    # ardından V4L2 M2M (/dev/video31) çıkış çözünürlüğünü JPEG'e kodlar (~75 MP/s tepe kapasite).
     try:
         w = max(1, width)
         h = max(1, height)
-        f = max(1, fps)
-        pixels_per_sec = w * h * f
+        f = max(1, min(fps, 100))
+        isp_pixels = max(w * h, 640 * 480)
+        enc_pixels = w * h
+        pixels_per_sec = (isp_pixels + enc_pixels) * f
         max_throughput = 75_000_000
         pct = min(100.0, max(1.0, (pixels_per_sec / max_throughput) * 100.0))
-        return f"%{pct:.1f}", "128 MB", "VideoCore IV V4L2 M2M (Aktif)"
+        return f"%{pct:.1f}", "128 MB", "VideoCore IV ISP+M2M (~Tahmini)"
     except Exception:
         return "%0.0", "128 MB", "VideoCore IV V4L2 M2M"
 
@@ -463,9 +475,30 @@ def get_system_status() -> dict:
     status["gpu_mem"] = gpu_mem
     status["gpu_status"] = gpu_stat
 
+    # USB MaxPacket & Aktif Kamera Kontrol Durumu
+    try:
+        mp_path = Path("/sys/kernel/config/usb_gadget/pi_uvc/functions/uvc.usb0/streaming_maxpacket")
+        if mp_path.exists():
+            mp_val = mp_path.read_text(encoding="utf-8").strip()
+            status["usb_maxpacket"] = mp_val if mp_val else "1024"
+        else:
+            status["usb_maxpacket"] = "1024"
+    except Exception:
+        status["usb_maxpacket"] = "1024"
+
     # Fast-Crop (Yüksek FPS Kırpma) ayarları ve sysfs durumu
     cfg = load_config()
     status["fast_crop"] = cfg.get("fast_crop", DEFAULT_CONFIG["fast_crop"].copy())
+    status["spatial_denoise"] = bool(cfg.get("spatial_denoise", True))
+    status["auto_exposure"] = bool(cfg.get("auto_exposure", True))
+    try:
+        status["exposure_value"] = int(cfg.get("exposure_value", 5000))
+    except (ValueError, TypeError):
+        status["exposure_value"] = 5000
+    try:
+        status["analogue_gain"] = float(cfg.get("analogue_gain", 8.0))
+    except (ValueError, TypeError):
+        status["analogue_gain"] = 8.0
     try:
         fc_sys = Path("/sys/module/ov5647/parameters/fast_crop")
         if fc_sys.exists():
@@ -558,11 +591,15 @@ def apply_runtime_camera_controls(config: dict) -> dict:
                     run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"exposure_time_absolute={exp_val}"])
                     run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"exposure={exp_val}"])
 
-        # Görüntü kalitesi kontrolleri (0-100)
+        # Görüntü kalitesi ve kazanç kontrolleri
         for key in ("brightness", "contrast", "saturation", "sharpness"):
             if key in config:
                 val = int(config[key])
                 run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"{key}={val}"])
+
+        if "analogue_gain" in config:
+            gain_val = max(1, min(16, int(round(float(config["analogue_gain"])))))
+            run_cmd(["v4l2-ctl", "--device", dev, "--set-ctrl", f"analogue_gain={gain_val}"])
 
     return {"devices": ctrl_devices, "status": "applied"}
 
@@ -613,11 +650,11 @@ def api_set_config():
     config = load_config()
 
     # Boolean alanlar
-    for key in ("hflip", "vflip", "auto_exposure"):
+    for key in ("hflip", "vflip", "auto_exposure", "spatial_denoise"):
         if key in data:
             config[key] = bool(data[key])
 
-    # Sayısal alanlar (0-100) ve exposure
+    # Sayısal alanlar (0-100), exposure ve analogue_gain
     try:
         for key in ("brightness", "contrast", "saturation", "sharpness"):
             if key in data:
@@ -626,8 +663,11 @@ def api_set_config():
 
         if "exposure_value" in data:
             config["exposure_value"] = max(1, min(100000, int(data["exposure_value"])))
+
+        if "analogue_gain" in data:
+            config["analogue_gain"] = round(max(1.0, min(16.0, float(data["analogue_gain"]))), 1)
     except (ValueError, TypeError):
-        return jsonify({"status": "error", "message": "Sayısal parametreler geçerli tamsayı olmalıdır"}), 400
+        return jsonify({"status": "error", "message": "Sayısal parametreler geçerli sayı olmalıdır"}), 400
 
     # AWB modu
     if "awb_mode" in data:
@@ -679,7 +719,7 @@ def api_fast_crop():
             cur_w = int(config.get("width", 640))
             cur_h = int(config.get("height", 480))
             res_key = f"{cur_w}x{cur_h}"
-            active_val = config["fast_crop"].get(res_key, (cur_w <= 320 and cur_h <= 240))
+            active_val = config["fast_crop"].get(res_key, False)
             fc_path = Path("/sys/module/ov5647/parameters/fast_crop")
             if fc_path.exists():
                 fc_path.write_text("1\n" if active_val else "0\n", encoding="utf-8")
@@ -698,7 +738,7 @@ def api_fast_crop():
     })
 
 
-PRESET_RESOLUTIONS = {(320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)}
+PRESET_RESOLUTIONS = {(192, 192), (320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)}
 
 
 def schedule_safe_reboot():

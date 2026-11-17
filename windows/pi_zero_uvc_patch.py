@@ -320,8 +320,20 @@ if uvc_b and hasattr(uvc_b, 'UVC_Source'):
                     if hasattr(self, 'update_menu'):
                         self.update_menu()
 
-                avail_sizes = [tuple(s) for s in self.uvc_capture.frame_sizes] if self.uvc_capture else [(640, 480), (1280, 720)]
-                size_labels = [f"{w}x{h} ({'VGA - Göz Takibi' if (w,h)==(640,480) else 'HD'})" for w, h in avail_sizes]
+                res_labels = {
+                    (192, 192): "Göz Takibi - Yüksek FPS",
+                    (320, 240): "QVGA - Göz Takibi",
+                    (400, 400): "Kare Göz Takibi",
+                    (640, 480): "VGA - Göz Takibi",
+                    (800, 600): "SVGA",
+                    (1280, 720): "HD Sahne",
+                }
+                avail_sizes = (
+                    [tuple(s) for s in self.uvc_capture.frame_sizes]
+                    if self.uvc_capture
+                    else [(192, 192), (320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)]
+                )
+                size_labels = [f"{w}x{h} ({res_labels.get((w, h), 'Özel')})" for w, h in avail_sizes]
                 pz_menu.append(
                     _ui.Selector(
                         "frame_size",
@@ -363,6 +375,8 @@ if uvc_b and hasattr(uvc_b, 'UVC_Source'):
                         set_fps(fps)
                     return _ui.Button(title, apply_preset)
 
+                pz_menu.append(make_preset_btn(192, 192, 90, "Önayar: 192x192 @ 90 FPS (Pupil - En Yüksek FPS)"))
+                pz_menu.append(make_preset_btn(320, 240, 90, "Önayar: 320x240 @ 90 FPS (Hızlı Göz Takibi)"))
                 pz_menu.append(make_preset_btn(640, 480, 90, "Önayar: 640x480 @ 90 FPS (Önerilen - Yüksek Hızlı Göz Takibi)"))
                 pz_menu.append(make_preset_btn(640, 480, 60, "Önayar: 640x480 @ 60 FPS (Dengeli Mod)"))
                 pz_menu.append(make_preset_btn(1280, 720, 30, "Önayar: 1280x720 @ 30 FPS (HD Çözünürlük)"))
@@ -437,7 +451,7 @@ class Pi_Zero_UVC_Patch(Plugin):
             self.menu.append(self.status_text)
 
             def get_sizes():
-                sizes = [(320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)]
+                sizes = [(192, 192), (320, 240), (400, 400), (640, 480), (800, 600), (1280, 720)]
                 if hasattr(self.g_pool, 'capture') and self.g_pool.capture and hasattr(self.g_pool.capture, 'uvc_capture') and self.g_pool.capture.uvc_capture:
                     try:
                         sizes = [tuple(s) for s in self.g_pool.capture.uvc_capture.frame_sizes]

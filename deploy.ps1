@@ -194,11 +194,15 @@ $ConfigUpdateCmd = "sudo mkdir -p /etc/default && " +
     "grep -q ""^ALLOW_TEST_PATTERN="" /etc/default/picam-uvc && sed -i ""s/^ALLOW_TEST_PATTERN=.*/ALLOW_TEST_PATTERN=\""true\""/"" /etc/default/picam-uvc || echo ""ALLOW_TEST_PATTERN=\""true\"""" >> /etc/default/picam-uvc; " +
     "fi; chmod 644 /etc/default/picam-uvc'"
 
+$NormalizeEolCmd = "find . -type f \( -name '*.sh' -o -name '*.service' \) -exec sed -i 's/\r$//' {} + && "
+$RemoteDestBash = $RemoteDest -replace '^~/', '$HOME/' -replace '^~$', '$HOME'
+
 if ($SkipInstall) {
     $CompileCmd = if ($Compile) {
-        "( cd uvc-gadget && ( if [ -d build ]; then ninja -C build && sudo ninja -C build install; else make && sudo make install; fi ) ) && "
+        "( cd uvc-gadget && ( if [ -d build ]; then ninja -C build && sudo ninja -C build install; else meson setup build --buildtype=release && ninja -C build && sudo ninja -C build install; fi ) ) && "
     } else { "" }
-    $RemoteSetupCmd = "cd ""$RemoteDest"" && " +
+    $RemoteSetupCmd = "cd ""$RemoteDestBash"" && " +
+        $NormalizeEolCmd +
         $CompileCmd +
         "sudo install -m 755 scripts/setup-gadget.sh /usr/local/bin/setup-gadget.sh && " +
         "sudo install -m 755 scripts/start-uvc.sh /usr/local/bin/start-uvc.sh && " +
@@ -209,11 +213,12 @@ if ($SkipInstall) {
         "sudo systemctl daemon-reload && " +
         "sudo systemctl restart picam-web && " +
         "$ConfigUpdateCmd && " +
-        "sudo systemctl stop uvc-gadget 2>/dev/null; " +
+        "( sudo systemctl stop uvc-gadget 2>/dev/null || true ) && " +
         "sudo /usr/local/bin/setup-gadget.sh '$Role' restart && " +
         "sudo systemctl restart uvc-gadget"
 } else {
-    $RemoteSetupCmd = "cd ""$RemoteDest"" && " +
+    $RemoteSetupCmd = "cd ""$RemoteDestBash"" && " +
+        $NormalizeEolCmd +
         "sudo bash install.sh && " +
         "$ConfigUpdateCmd && " +
         "sudo /usr/local/bin/setup-gadget.sh $Role restart && " +
@@ -233,7 +238,7 @@ $VerifyCmd = "systemctl is-active uvc-gadget >/dev/null 2>&1 && " +
     "test -s /sys/kernel/config/usb_gadget/pi_uvc/UDC && " +
     "cat /sys/kernel/config/usb_gadget/pi_uvc/strings/0x409/product"
 
-$MkdirArgs = $SshBaseArgs + @("$($User)@$($TargetHost)", "mkdir -p ""$RemoteDest""")
+$MkdirArgs = $SshBaseArgs + @("$($User)@$($TargetHost)", "mkdir -p ""$RemoteDestBash""")
 $RemoteSetupArgs = $SshBaseArgs + @("$($User)@$($TargetHost)", $RemoteSetupCmd)
 $VerifyArgs = $SshBaseArgs + @("$($User)@$($TargetHost)", $VerifyCmd)
 

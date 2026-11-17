@@ -168,9 +168,13 @@ uvc_fill_streaming_control(struct uvc_device *dev,
 	 */
 	switch (format->fcc) {
 	case V4L2_PIX_FMT_YUYV:
-	case V4L2_PIX_FMT_MJPEG:
 		ctrl->dwMaxVideoFrameSize = frame->width * frame->height * 2;
 		break;
+	case V4L2_PIX_FMT_MJPEG: {
+		unsigned int mjpeg_size = frame->width * frame->height;
+		ctrl->dwMaxVideoFrameSize = (mjpeg_size > 65536U) ? mjpeg_size : 65536U;
+		break;
+	}
 	}
 
 	ctrl->dwMaxPayloadTransferSize = dev->fc->streaming.ep.wMaxPacketSize;

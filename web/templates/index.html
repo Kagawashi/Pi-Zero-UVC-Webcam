@@ -439,6 +439,13 @@
                     <div class="stat-item">
                         <div class="stat-label">GPU Kullanımı</div>
                         <div class="stat-value" id="statGpuLoad" style="color:var(--accent);">{{ status.gpu_load or '%0.0' }}</div>
+                        <div id="statGpuStatus" style="font-size:0.72rem; color:var(--text2); margin-top:2px;">{{ status.gpu_status or 'VideoCore IV ISP+M2M' }}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Gürültü Azaltma &amp; USB</div>
+                        <div class="stat-value" id="statPipeline">
+                            GPU SDN {{ 'Aktif' if status.spatial_denoise is not sameas false else 'Kapalı' }} · {{ status.usb_maxpacket or '1024' }}B ISOC
+                        </div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-label">Bellek</div>
@@ -532,14 +539,14 @@
                         {% set cur_w = (status and status.width) or (env and env.WIDTH) or '640' %}
                         {% set cur_h = (status and status.height) or (env and env.HEIGHT) or '480' %}
                         {% set cur_res = cur_w ~ 'x' ~ cur_h %}
-                        {% set is_preset = cur_res in ['320x240', '400x400', '640x480', '800x600', '1280x720'] %}
+                        {% set is_preset = cur_res in ['192x192', '320x240', '400x400', '640x480', '800x600', '1280x720'] %}
 
                         <div style="display: flex; gap: 12px; margin-top: 10px; min-width: 0; flex-wrap: wrap;">
                             <div style="flex: 1 1 180px; min-width: 0;">
                                 <label for="sensorFps">Hedef FPS</label>
                                 <select id="sensorFps">
                                     <option value="90" {% if (env and env.FPS == '90') or (status and status.fps == '90') %}selected{% endif %}>90 FPS (Önerilen Göz Takibi)</option>
-                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS (Yüksek Hız - OV9281)</option>
+                                    <option value="120" {% if (env and env.FPS == '120') or (status and status.fps == '120') %}selected{% endif %}>120 FPS (Yüksek Hız - 192p/240p/OV9281)</option>
                                     <option value="60" {% if (env and env.FPS == '60') or (status and status.fps == '60') %}selected{% endif %}>60 FPS</option>
                                     <option value="30" {% if (env and env.FPS == '30') or (status and status.fps == '30') %}selected{% endif %}>30 FPS</option>
                                     <option value="15" {% if (env and env.FPS == '15') or (status and status.fps == '15') %}selected{% endif %}>15 FPS</option>
@@ -548,7 +555,8 @@
                             <div style="flex: 1.4 1 240px; min-width: 0;">
                                 <label for="sensorResolution">Çözünürlük</label>
                                 <select id="sensorResolution" onchange="onResolutionChange(this.value)">
-                                    <option value="320x240" {% if cur_res == '320x240' %}selected{% endif %}>320x240 (320p / Hızlı Göz Takibi / Düşük CPU)</option>
+                                    <option value="192x192" {% if cur_res == '192x192' %}selected{% endif %}>192x192 (192p / Pupil Göz Takibi / En Yüksek FPS)</option>
+                                    <option value="320x240" {% if cur_res == '320x240' %}selected{% endif %}>320x240 (240p / Hızlı Göz Takibi / Düşük Bant Genişliği)</option>
                                     <option value="400x400" {% if cur_res == '400x400' %}selected{% endif %}>400x400 (400p / Kare Göz Takibi)</option>
                                     <option value="640x480" {% if cur_res == '640x480' %}selected{% endif %}>640x480 (480p / VGA Standart)</option>
                                     <option value="800x600" {% if cur_res == '800x600' %}selected{% endif %}>800x600 (600p / SVGA)</option>
@@ -570,7 +578,7 @@
                             </div>
                         </div>
                         <div id="customResHint" class="info-box" style="margin-top: 8px; font-size: 0.82rem; display: {{ 'block' if not is_preset else 'none' }}; word-break: break-word;">
-                            💡 <strong>Özel Çözünürlük İpucu:</strong> Çözünürlükler çift sayı olmalıdır (160x120 - 1920x1080). VideoCore IV GPU donanım JPEG sıkıştırması sayesinde <strong>192x192</strong>, <strong>320x240</strong> ve <strong>640x480</strong> çözünürlüklerde ~%13-16 CPU yüküyle tam sensör hızında akıcı göz/sahne takibi elde edilir.
+                            💡 <strong>Özel Çözünürlük İpucu:</strong> Çözünürlükler çift sayı olmalıdır (160x120 - 1920x1080). VideoCore IV GPU donanım JPEG sıkıştırması + Spatial Denoise ile <strong>192x192</strong> (~69 FPS), <strong>320x240</strong> (~68 FPS) ve <strong>640x480</strong> (~58–60 FPS) çözünürlüklerde bozuk kare olmadan akıcı göz/sahne takibi elde edilir.
                         </div>
 
                         <div style="margin-top: 12px;">
@@ -582,7 +590,7 @@
                 </div>
 
                 <div class="info-box" style="margin-top: 16px;">
-                    💡 <strong>Rol veya sensör değiştirildiğinde:</strong> Ayarlar <code>/etc/default/picam-uvc</code> dosyasına güvenle kaydedilir ve <code>uvc-gadget</code> servisi yeniden başlatılarak yeni USB UVC tanımlayıcıları (VID/PID/String) etkinleştirilir.
+                    💡 <strong>Hazır Çözünürlük vs Rol/Özel Çözünürlük:</strong> Hazır çözünürlükler (<code>192x192</code> – <code>1280x720</code>) USB descriptor'larında yerleşik olduğundan <strong>Pupil Capture içinden yeniden başlatmasız</strong> anında seçilebilir. Yalnızca <strong>Kamera Rolü</strong> (<code>eye0/eye1/world/generic</code>) veya <strong>Özel Çözünürlük</strong> değiştirildiğinde Pi güvenli yeniden başlatma (~45 sn) yapar.
                 </div>
             </div>
         </section>
@@ -653,6 +661,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+                    <div class="toggle-row">
+                        <div>
+                            <div class="toggle-label">VideoCore IV GPU Spatial Denoise</div>
+                            <div class="toggle-sub">Kırmızı/mavi/yeşil sensör karıncalanmasını (chroma noise) GPU donanımında temizler</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="spatial_denoise" {{ 'checked' if config.get('spatial_denoise', true) }}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Slider Ayarları -->
@@ -707,6 +725,16 @@
                                 value="{{ config.exposure_value }}" oninput="updateRangeLabel(this)">
                             <span class="range-value">{{ config.exposure_value }}</span>
                         </div>
+                        <div class="toggle-sub">90 FPS akış için &le; 10000 µs (örn. 3000–8000 µs) önerilir; kare süresini aşan değerler libcamera tarafından otomatik kırpılır.</div>
+                    </div>
+                    <div class="form-group" id="gainGroup">
+                        <label for="analogue_gain">Analog Kazanç / Gain (1.0x–16.0x)</label>
+                        <div class="range-row">
+                            <input type="range" id="analogue_gain" min="1.0" max="16.0" step="0.5"
+                                value="{{ config.get('analogue_gain', 8.0) }}" oninput="updateRangeLabel(this)">
+                            <span class="range-value">{{ config.get('analogue_gain', 8.0) }}</span>
+                        </div>
+                        <div class="toggle-sub">Otomatik Pozlama kapatıldığında sensör analog kazancı olarak canlı uygulanır.</div>
                     </div>
                 </div>
 
@@ -757,7 +785,7 @@
                 </div>
 
                 <div class="info-box" style="margin-top: 16px;">
-                    💡 <strong>Not:</strong> Bu ayarlar anında aktiftir. Pupil Capture uygulamasında ilgili çözünürlüğü seçtiğiniz anda kamera belirlenen modda (Kırpılmış 120-190 FPS veya Tam Görüş Alanı) çalışır. Servisi yeniden başlatmanız gerekmez.
+                    💡 <strong>Not:</strong> OV5647 sensörde 192x192 / 320x240 çözünürlüklerinde şeritlenmeyi önlemek için <strong>Hızlı Kırpma varsayılan olarak kapalıdır</strong> (Full FOV + donanımsal VideoCore IV ISP ölçekleme kullanılır). Değişiklik yaptığınızda ayar anında uygulanır; servisi yeniden başlatmanız gerekmez.
                 </div>
             </div>
         </section>
@@ -770,12 +798,17 @@
             <div class="card-body">
                 <div class="info-box" style="border-left-color: var(--green);">
                     <strong>🔌 Bağlantı:</strong><br>
-                    Pi Zero'nun <code>USB</code> portunu (güç portu DEĞİL) bilgisayarınıza data kablosuyla bağlayın.<br><br>
+                    Pi Zero'nun ortadaki <code>USB</code> (Data) portunu (güç portu <code>PWR IN</code> DEĞİL) bilgisayarınıza veri kablosuyla bağlayın.<br><br>
 
-                    <strong>🖥️ Windows'ta Kullanım:</strong><br>
-                    • <strong>Kamera Uygulaması:</strong> Başlat → Kamera → kaynak olarak "Pi Zero UVC Camera" seçin<br>
-                    • <strong>OBS Studio:</strong> Kaynak Ekle → Video Yakalama Cihazı → "Pi Zero UVC Camera"<br>
-                    • <strong>Zoom/Teams:</strong> Ayarlar → Video → Kamera → "Pi Zero UVC Camera"<br><br>
+                    <strong>🎯 Pupil Capture (Önerilen):</strong><br>
+                    • Windows eklentisi ve sürücü kurulumu için depodan <code>powershell -ExecutionPolicy Bypass -File .\windows\install_plugin.ps1</code> çalıştırın<br>
+                    • Seçili role göre cihaz <code>Pupil Cam1 ID0</code> (eye0), <code>ID1</code> (eye1) veya <code>ID2</code> (world) olarak tanınır<br>
+                    • ⚠️ Pupil Capture'da canlı video açıkken <code>uvc-gadget</code> servisini yeniden başlatmayın; değişiklik öncesi kamera akışını durdurun<br><br>
+
+                    <strong>🖥️ Diğer Uygulamalarda Kullanım:</strong><br>
+                    • <strong>Kamera Uygulaması:</strong> Başlat → Kamera → "Pupil Cam1 ID0" / "Pi Zero UVC Camera"<br>
+                    • <strong>OBS Studio:</strong> Kaynak Ekle → Video Yakalama Cihazı<br>
+                    • <strong>Zoom/Teams:</strong> Ayarlar → Video → Kamera<br><br>
 
                     <strong>🌐 Web Paneli:</strong><br>
                     Bu sayfaya her zaman <code>http://{{ status.hostname }}.local:8080</code> adresinden erişebilirsiniz.
@@ -785,7 +818,7 @@
     </main>
 
     <footer>
-        Pi Zero UVC Camera &middot; {{ status.hostname }} &middot; OV5647
+        Pi Zero UVC Camera &middot; {{ status.hostname }} &middot; <span id="footerSensor">{{ status.sensor_name or status.sensor }}</span>
     </footer>
 
     <!-- Toast Container -->
@@ -825,8 +858,12 @@
         function updateExposureVisibility() {
             const autoExp = document.getElementById('auto_exposure').checked;
             const expGroup = document.getElementById('exposureGroup');
+            const gainGroup = document.getElementById('gainGroup');
             expGroup.style.opacity = autoExp ? '0.4' : '1';
             document.getElementById('exposure_value').disabled = autoExp;
+            if (gainGroup) gainGroup.style.opacity = autoExp ? '0.4' : '1';
+            const gainInput = document.getElementById('analogue_gain');
+            if (gainInput) gainInput.disabled = autoExp;
         }
 
         document.getElementById('auto_exposure').addEventListener('change', updateExposureVisibility);
@@ -845,11 +882,13 @@
                 hflip: document.getElementById('hflip').checked,
                 vflip: document.getElementById('vflip').checked,
                 auto_exposure: document.getElementById('auto_exposure').checked,
-                brightness: parseInt(document.getElementById('brightness').value),
-                contrast: parseInt(document.getElementById('contrast').value),
-                saturation: parseInt(document.getElementById('saturation').value),
-                sharpness: parseInt(document.getElementById('sharpness').value),
-                exposure_value: parseInt(document.getElementById('exposure_value').value),
+                spatial_denoise: document.getElementById('spatial_denoise').checked,
+                brightness: parseInt(document.getElementById('brightness').value, 10),
+                contrast: parseInt(document.getElementById('contrast').value, 10),
+                saturation: parseInt(document.getElementById('saturation').value, 10),
+                sharpness: parseInt(document.getElementById('sharpness').value, 10),
+                exposure_value: parseInt(document.getElementById('exposure_value').value, 10),
+                analogue_gain: parseFloat(document.getElementById('analogue_gain').value),
                 awb_mode: document.getElementById('awb_mode').value,
             };
 
@@ -864,6 +903,7 @@
 
             if (result && result.status === 'ok') {
                 showToast('✓ Ayarlar kaydedildi' + (result.restart ? ' — ' + result.restart : ''), 'success');
+                refreshStatus();
             } else {
                 showToast('✗ Kaydetme başarısız', 'error');
             }
@@ -877,11 +917,13 @@
             document.getElementById('hflip').checked = false;
             document.getElementById('vflip').checked = false;
             document.getElementById('auto_exposure').checked = true;
+            document.getElementById('spatial_denoise').checked = true;
             document.getElementById('brightness').value = 50;
             document.getElementById('contrast').value = 50;
             document.getElementById('saturation').value = 50;
             document.getElementById('sharpness').value = 50;
-            document.getElementById('exposure_value').value = 1000;
+            document.getElementById('exposure_value').value = 5000;
+            document.getElementById('analogue_gain').value = 8.0;
             document.getElementById('awb_mode').value = 'auto';
 
             // Label'ları güncelle
@@ -933,10 +975,14 @@
 
         function onSensorChange(sensor) {
             const fpsSelect = document.getElementById('sensorFps');
+            const resSelect = document.getElementById('sensorResolution');
+            const resVal = resSelect ? resSelect.value : '';
             if (sensor === 'ov9281') {
                 fpsSelect.value = '120';
             } else if (sensor === 'ov5647' || sensor === 'imx219') {
-                if (fpsSelect.value === '120') fpsSelect.value = '90';
+                if (fpsSelect.value === '120' && resVal !== '192x192' && resVal !== '320x240') {
+                    fpsSelect.value = '90';
+                }
             }
         }
 
@@ -1032,19 +1078,19 @@
         // =====================================================================
 
         const FAST_CROP_INFO = [
-            { res: '192x192', label: '192x192', purpose: 'Pupil Göz Takibi (Eye Tracking)', cropDesc: '⚡ 320x240 Merkez Kırpma (191 FPS)', fullDesc: '🔍 640x480 Binned Full FOV (100 FPS)' },
-            { res: '320x240', label: '320x240 (320p)', purpose: 'Yüksek Hızlı Göz Takibi (Düşük CPU)', cropDesc: '⚡ 320x240 Merkez Kırpma (191 FPS)', fullDesc: '🔍 640x480 Binned Full FOV (100 FPS)' },
-            { res: '400x400', label: '400x400 (400p)', purpose: 'Kare Göz Takibi', cropDesc: '⚡ 320x240 Kırpma Modu', fullDesc: '🔍 640x480 Binned Full FOV' },
-            { res: '640x480', label: '640x480 (VGA)', purpose: 'Standart Göz / Dünya Sahnesi', cropDesc: '⚡ 320x240 Kırpma Modu', fullDesc: '🔍 2560x1920 Binned Tam Sensör (100 FPS)' },
-            { res: '800x600', label: '800x600 (SVGA)', purpose: 'Geniş Çevre / Sahne Kamerası', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 Tam Sensör Geniş Açı' },
-            { res: '1280x720', label: '1280x720 (720p)', purpose: 'HD Dünya Sahne Kaydı', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 2592x1944 Binned HD Geniş Açı' }
+            { res: '192x192', label: '192x192 (192p)', purpose: 'Pupil Göz Takibi (Eye Tracking)', cropDesc: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', fullDesc: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~69 FPS)' },
+            { res: '320x240', label: '320x240 (240p)', purpose: 'Yüksek Hızlı Göz Takibi (Düşük Bant Genişliği)', cropDesc: '⚡ 320x240 Merkez Kırpma (120-190 FPS)', fullDesc: '🔍 640x480 Full FOV + GPU ISP Ölçekleme (~68 FPS)' },
+            { res: '400x400', label: '400x400 (400p)', purpose: 'Kare Göz Takibi', cropDesc: '⚡ Merkez Kırpma Modu', fullDesc: '🔍 Full FOV + GPU ISP Ölçekleme' },
+            { res: '640x480', label: '640x480 (VGA)', purpose: 'Standart Göz / Dünya Sahnesi', cropDesc: '⚡ Merkez Kırpma Modu', fullDesc: '🔍 Tam Sensör Binned Full FOV (~58–60 FPS)' },
+            { res: '800x600', label: '800x600 (SVGA)', purpose: 'Geniş Çevre / Sahne Kamerası', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 Tam Sensör Geniş Açı (~37 FPS)' },
+            { res: '1280x720', label: '1280x720 (720p)', purpose: 'HD Dünya Sahne Kaydı', cropDesc: '⚡ Kırpma Modu', fullDesc: '🔍 1920x1080 Binned HD Full FOV (30 FPS)' }
         ];
 
         let currentFastCropConfig = {{ (config.fast_crop if config and config.fast_crop else {}) | tojson }};
         if (!currentFastCropConfig || Object.keys(currentFastCropConfig).length === 0) {
             currentFastCropConfig = {
-                "192x192": true,
-                "320x240": true,
+                "192x192": false,
+                "320x240": false,
                 "400x400": false,
                 "640x480": false,
                 "800x600": false,
@@ -1112,6 +1158,14 @@
             document.getElementById('statLoad').textContent = data.cpu_load;
             const gpuEl = document.getElementById('statGpuLoad');
             if (gpuEl && data.gpu_load) gpuEl.textContent = data.gpu_load;
+            const gpuStatusEl = document.getElementById('statGpuStatus');
+            if (gpuStatusEl && data.gpu_status) gpuStatusEl.textContent = data.gpu_status;
+            const pipeEl = document.getElementById('statPipeline');
+            if (pipeEl) {
+                const sdnLabel = data.spatial_denoise === false ? 'Kapalı' : 'Aktif';
+                const maxPkt = data.usb_maxpacket || '1024';
+                pipeEl.textContent = `GPU SDN ${sdnLabel} · ${maxPkt}B ISOC`;
+            }
             document.getElementById('statMem').textContent = data.memory;
             document.getElementById('statDisk').textContent = data.disk;
             document.getElementById('statUptime').textContent = data.uptime;
@@ -1126,6 +1180,8 @@
             if (data.sensor_name || data.sensor) {
                 const el = document.getElementById('statSensor');
                 if (el) el.textContent = data.sensor_name || data.sensor;
+                const footerEl = document.getElementById('footerSensor');
+                if (footerEl) footerEl.textContent = data.sensor_name || data.sensor;
             }
             if (data.resolution) {
                 const el = document.getElementById('statResolution');
